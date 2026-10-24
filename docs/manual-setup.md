@@ -1,95 +1,64 @@
-# Manual Setup — Without the GUI
+# Manual setup (without the app)
 
-This guide covers everything the GUI does, step by step, so you can do it manually or script it.
-
----
+Everything the app does, as commands. They work in `cmd` or PowerShell on Windows.
 
 ## 1. Install 9Router
 
-Requires Node.js ≥ 18 and npm.
+Requires Node.js 18+.
 
 ```bash
 npm install -g --allow-scripts=9router 9router
-```
-
-Verify:
-
-```bash
 9router --version
 ```
-
----
 
 ## 2. Start the server
 
 ```bash
-9router
+9router --host 127.0.0.1 --no-browser --log
 ```
 
-The dashboard opens at `http://localhost:20128`.  
-The OpenAI-compatible API endpoint is `http://localhost:20128/v1`.
+- `--log` skips the interactive menu and shows the server log.
+- `--host 127.0.0.1` makes 9Router reachable only from your own PC. Without it, other computers on your network can reach it too.
+- The dashboard is at `http://localhost:20128/dashboard`.
 
----
+## 3. Create your password
 
-## 3. Enable routing for Claude Code
+If you never created one, the dashboard password is **`123456`**. Change it at `http://localhost:20128/dashboard/profile`.
 
-Claude Code reads the `ANTHROPIC_BASE_URL` environment variable to override the default Anthropic endpoint.
+Login locks after 5 wrong attempts.
 
-### Windows — permanent (user-level)
+## 4. Add a provider
 
-```powershell
-[System.Environment]::SetEnvironmentVariable("ANTHROPIC_BASE_URL", "http://localhost:20128", "User")
-```
+Dashboard → **Providers**. For a free option, connect **Kiro AI** and sign in with your Kiro account.
 
-### Windows — current session only
-
-```powershell
-$env:ANTHROPIC_BASE_URL = "http://localhost:20128"
-```
-
-### macOS / Linux — permanent
-
-Add to `~/.zshrc` or `~/.bashrc`:
+## 5. Connect command-line tools
 
 ```bash
-export ANTHROPIC_BASE_URL=http://localhost:20128
+9router connect http://127.0.0.1:20128 --tools claude          # one tool
+9router connect http://127.0.0.1:20128 --tools claude,codex    # several
+9router connect http://127.0.0.1:20128 --tools all             # all of them
 ```
 
-Then reload: `source ~/.zshrc`
+Supported ids: `claude, codex, opencode, droid, crush, kilo, cline, pi, omp`.
 
----
+The command asks for your dashboard password. It writes each tool's config file and keeps a backup (`*.bak-9router`). Restart the tool afterwards.
 
-## 4. Restart Claude Code
+Check what each tool is set to:
 
-After setting the environment variable, restart Claude Code so it picks up the new value.
-
----
-
-## 5. Disable routing
-
-### Windows
-
-```powershell
-[System.Environment]::SetEnvironmentVariable("ANTHROPIC_BASE_URL", $null, "User")
+```bash
+9router show
 ```
 
-### macOS / Linux
+## 6. Kiro IDE, Cursor, GitHub Copilot
 
-Remove or comment out the `export` line from your shell profile, then reload it.
+These IDEs are routed by interception. Open `http://localhost:20128/dashboard/mitm`, enable it and follow the steps (it may ask you to install a certificate).
 
----
+## 7. Turning it off
 
-## 6. Add AI providers in the 9Router dashboard
+```bash
+9router connect --reset --tools claude    # or: --tools all
+```
 
-1. Open `http://localhost:20128` in your browser.
-2. Go to **Providers** → **Add Provider**.
-3. Enter your API key for each provider (OpenAI, Anthropic, etc.).
-4. Configure fallback order under **Routing**.
+This restores the tool's original configuration. Then stop the server with `Ctrl+C` in its window (or close it from the tray icon).
 
----
-
-## Notes
-
-- 9Router exposes an OpenAI-compatible endpoint. Claude Code routing via `ANTHROPIC_BASE_URL` depends on 9Router's proxy translation layer.
-- The local server must be running **before** you start Claude Code for routing to work.
-- To verify routing is active: check the 9Router dashboard's request log after sending a message in Claude Code.
+Remove the tools first, then stop the server. A tool that still points to 9Router fails while the server is off.

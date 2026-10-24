@@ -1,118 +1,83 @@
 # claude-code-9router
 
-A local gateway manager that routes **Claude Code** (and other AI coding tools) through [9Router](https://9router.com) — giving you access to 60+ AI providers, a three-tier fallback system, and token-saving features, all from a single GUI.
+A Windows app (Portuguese / English) that runs [9Router](https://9router.com) and connects your AI coding tools to it: **Claude Code, Codex, OpenCode, Cline, Kilo Code, Factory Droid, Crush, Pi, Oh My Pi**, plus **Kiro, Cursor and GitHub Copilot** through the 9Router dashboard.
 
 ---
 
 ## What is 9Router?
 
-9Router is an open-source local proxy that sits between your coding tools and AI providers. It exposes one OpenAI-compatible endpoint at `http://localhost:20128/v1` and handles:
+9Router is an open-source gateway that runs on your own PC. Your AI tools send their requests to it, and it forwards them to the AI providers you configured (Anthropic, OpenAI, Gemini, Kiro, and 40+ others). It can switch to a cheaper or free provider when a quota runs out, and it has token-saving features.
 
-- Routing across 60+ providers (Anthropic, OpenAI, Gemini, Groq, and more)
-- Automatic fallback (subscription → cheap → free) when quotas run out
-- Token savings via RTK and Caveman Mode
-- Cloud Sync + Cloudflare Tunnel for remote access
-
----
-
-## Prerequisites
-
-| Requirement | Version |
-|---|---|
-| Node.js | ≥ 18 |
-| npm | ≥ 8 |
-| Python | ≥ 3.10 |
+```
+Claude Code / Codex / Cline / ...      Kiro IDE / Cursor / Copilot
+              │                                   │ (interception, MITM)
+              ▼                                   ▼
+        9Router on your PC — http://localhost:20128
+              │
+              ├── Kiro AI (free)
+              ├── Anthropic, OpenAI, Gemini ...
+              └── fallback providers
+```
 
 ---
 
 ## Installation
 
-### Step 1 — Install 9Router
-
-```bash
-npm install -g --allow-scripts=9router 9router
-```
-
-### Step 2 — Clone this repo
+You need **Python 3.10+** and **Node.js 18+**.
 
 ```bash
 git clone https://github.com/wercelyduarte/claude-code-9router.git
 cd claude-code-9router
 ```
 
-### Step 3 — Install Python dependencies
+Double-click **`rodar.bat`**. On first run it installs 9Router (npm) and the Python dependency (`customtkinter`), then opens the app.
 
-```bash
-pip install -r requirements.txt
-```
+To build a standalone `.exe`: `build.bat`. To build an `.msi` installer: `build.bat msi`.
 
 ---
 
-## Running the GUI
+## First use, step by step
 
-```bash
-python app.py
-```
+### 1. Start 9Router
+**Painel / Dashboard** tab → **Iniciar 9Router / Start 9Router**. The dot turns green ("Running").
 
-The app has three sections:
+### 2. Create your dashboard password
+9Router protects its dashboard with a password. **If you never created one, the password is `123456`.** In that case the app shows an orange warning. Click **Criar / alterar senha** (Create / change password) and set your own on the page that opens.
 
-### Dashboard
-- **Status indicator** — shows whether 9Router is running (green) or stopped (red)
-- **Start / Stop buttons** — launches or terminates the local 9Router process
+> The app never stores your password. It only reads (read-only) whether one exists, so it can show the warning.
+>
+> **Warning:** 9Router locks the login after **5 wrong attempts**.
 
-### Configure
-- **Routing toggle** — sets or removes the `ANTHROPIC_BASE_URL` Windows environment variable so Claude Code sends requests through 9Router
-- **settings.json viewer** — shows the current Claude Code configuration
+### 3. Add an AI provider
+Click **Abrir Dashboard** (Open Dashboard) → **Providers**. The quickest free option is **Kiro AI**: click *Connect* and sign in with your Kiro account. You can add others with an API key or OAuth.
 
-### Logs
-- **Live output** — streams everything 9Router prints to stdout in real time
-- **Clear button** — wipes the log panel
+### 4. Connect your tools
+**Ferramentas / Tools** tab:
 
----
+| Group | What to do |
+|---|---|
+| **Command-line tools** (Claude Code, Codex, OpenCode, Cline, Kilo Code, Factory Droid, Crush, Pi, Oh My Pi) | Click **Conectar / Connect** on the tool, or **Conectar todas / Connect all**. The app asks for your dashboard password once and keeps it in memory until you close the app. 9Router then writes the tool's config file and keeps a backup of the original (`*.bak-9router`). |
+| **Kiro AI as a free provider** | **Abrir Providers** → Connect Kiro AI. Every tool above can then use Kiro's models. |
+| **Kiro IDE, Cursor, GitHub Copilot** | **Abrir MITM** → enable it and follow the steps. These IDEs are routed by interception, and the page may ask you to install a certificate. |
 
-## Enable / Disable Routing (Quick Reference)
+**Restart the tool** after connecting it.
 
-### Enable (via GUI)
-1. Start the app: `python app.py`
-2. Dashboard → click **Start 9Router**
-3. Configure tab → toggle **Route Claude Code through 9Router** ON
-4. Restart Claude Code
-
-### Disable (via GUI)
-1. Configure tab → toggle OFF
-2. Dashboard → click **Stop 9Router**
-3. Restart Claude Code
-
-### Enable / Disable manually
-See [docs/manual-setup.md](docs/manual-setup.md) for PowerShell and shell commands.
+### 5. Turning it off
+- To stop using 9Router in a tool: **Ferramentas → Remover / Remove** on that tool, then restart the tool. Its original configuration is restored.
+- **Remove the tool first, then stop 9Router.** If a tool is still connected while 9Router is stopped, its requests will fail.
 
 ---
 
-## How it works
+## What the Dashboard shows
 
-```
-Claude Code
-    │
-    │  ANTHROPIC_BASE_URL=http://localhost:20128
-    ▼
-9Router (local proxy on :20128)
-    │
-    ├── Provider 1 (Anthropic)
-    ├── Provider 2 (OpenAI)
-    └── Provider N (fallback…)
-```
+| Item | Meaning |
+|---|---|
+| **Running / Stopped** | Whether the 9Router server is answering on port 20128. Stopped means nothing goes through 9Router. |
+| **Usage and Savings** | Requests, tokens and cost that went through 9Router, read from its local database (updated every 10 s). **Token Saver** opens 9Router's page with the savings details. |
+| **Connected tools** | How many of the 9 command-line tools point to 9Router. |
+| **Dashboard password** | *Created ✓*, or *Default (123456)* if you still need to create one. |
 
-When `ANTHROPIC_BASE_URL` is set, Claude Code sends its API requests to the local 9Router instance instead of `api.anthropic.com`. 9Router translates and routes the request to whichever provider is configured.
-
----
-
-## Adding Providers
-
-1. Start 9Router (via GUI or `9router` in terminal)
-2. Open `http://localhost:20128` in your browser
-3. Go to **Providers → Add Provider**
-4. Enter your API key and save
-5. Configure fallback order under **Routing**
+The **PT / EN** buttons at the bottom of the sidebar switch the language.
 
 ---
 
@@ -120,25 +85,28 @@ When `ANTHROPIC_BASE_URL` is set, Claude Code sends its API requests to the loca
 
 | Problem | Fix |
 |---|---|
-| `'9router' not found` | Run `npm install -g --allow-scripts=9router 9router` |
-| Routing not working after toggle | Restart Claude Code to pick up the new env var |
-| Port 20128 in use | Kill the process using that port or change it in 9Router settings |
-| GUI won't open | Run `pip install customtkinter` |
+| `rodar.bat` opens a black window and closes | Run it from a terminal (`cmd`, then `rodar.bat`) to read the message. Check that Python and Node.js are installed. |
+| Start turns back to Stopped | Open the **Logs** tab. Another program may be using port 20128. |
+| "Login failed" when connecting | Wrong dashboard password. If you never created one, use `123456`. After 5 errors the login locks for a while. |
+| A tool shows "Connected" but doesn't work | Restart the tool and check that a provider is added in the dashboard. |
+| Numbers stay at 0 | No tool has sent requests through 9Router yet. |
+
+For command-line setup without the app, see [docs/manual-setup.md](docs/manual-setup.md).
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 claude-code-9router/
-├── app.py              # Main GUI (CustomTkinter)
-├── requirements.txt    # Python dependencies
-├── docs/
-│   └── manual-setup.md # Full manual instructions
-└── README.md
+├── rodar.bat               # launcher: checks/installs everything and opens the app
+├── bootstrap.py            # installs missing dependencies, then opens app.py
+├── app.py                  # the app (CustomTkinter)
+├── build.bat / setup.py    # build .exe / .msi (cx_Freeze)
+├── requirements.txt        # runtime dependency
+├── requirements-build.txt  # build dependencies
+└── docs/manual-setup.md    # manual setup with commands
 ```
-
----
 
 ## License
 

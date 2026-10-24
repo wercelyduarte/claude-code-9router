@@ -486,6 +486,30 @@ class App(ctk.CTk):
 
     # ── Process management ────────────────────────────────────────────────────
 
+    def _install_9router(self) -> bool:
+        """Try to install 9router via npm, streaming output to the log."""
+        self._log("[install] npm install -g --allow-scripts=9router 9router")
+        try:
+            proc = subprocess.Popen(
+                ["npm", "install", "-g", "--allow-scripts=9router", "9router"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            for line in proc.stdout:
+                self._log(f"[npm] {line.rstrip()}")
+            proc.wait()
+            if proc.returncode == 0:
+                self._log("[install] 9router instalado com sucesso!")
+                return True
+            self._log(f"[install] npm saiu com código {proc.returncode}.")
+            return False
+        except FileNotFoundError:
+            self._log("[install] ERRO: npm não encontrado. Instale Node.js 18+ em https://nodejs.org/")
+            return False
+
     def _start_router(self):
         if self._running:
             return
@@ -501,6 +525,10 @@ class App(ctk.CTk):
             )
         except FileNotFoundError:
             self._log(self.t("log_not_found"))
+            self._log("[install] Tentando instalar automaticamente…")
+            self._show_tab("Logs")  # show logs so user can follow progress
+            install_thread = threading.Thread(target=self._install_and_retry, daemon=True)
+            install_thread.start()
             return
 
         self._running = True
@@ -520,6 +548,14 @@ class App(ctk.CTk):
             self._process = None
         self._running = False
         self._refresh_status()
+
+    def _install_and_retry(self):
+        """Run in a thread: install 9router then start it."""
+        ok = self._install_9router()
+        if ok:
+            self.after(500, self._start_router)
+        else:
+            self._log("[install] Instalação falhou. Verifique a conexão e tente novamente.")
 
     def _stream_logs(self):
         try:

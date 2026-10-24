@@ -43,17 +43,25 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM -- 9router --
-where 9router >nul 2>nul
+REM -- 9router (usa --version pois 'where' nao acha .cmd no PATH do npm) --
+9router --version >nul 2>nul
 if errorlevel 1 (
   echo.
-  echo [rodar] 9router NAO esta instalado.
-  echo [rodar] Instalando agora via npm...
+  echo [rodar] 9router NAO esta instalado. Instalando agora via npm...
   echo.
   npm install -g --allow-scripts=9router 9router
   if errorlevel 1 (
     echo.
     echo [rodar] Falha ao instalar 9router. Verifique a conexao e tente novamente.
+    pause
+    exit /b 1
+  )
+  REM Confirma que o executavel foi criado
+  9router --version >nul 2>nul
+  if errorlevel 1 (
+    echo.
+    echo [rodar] Instalacao concluida mas comando ainda nao encontrado.
+    echo [rodar] Feche e reabra o terminal e tente novamente.
     pause
     exit /b 1
   )

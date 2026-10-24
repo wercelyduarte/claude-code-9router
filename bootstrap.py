@@ -20,8 +20,7 @@ import importlib
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REQUIREMENTS = os.path.join(BASE_DIR, "requirements.txt")
 
-# (modulo_importado, nome_pip)
-DEPENDENCIAS = [
+DEPENDENCIAS_PY = [
     ("customtkinter", "customtkinter"),
 ]
 
@@ -66,18 +65,54 @@ def _instalar(pkg_pip):
         return False
 
 
-def garantir_deps():
-    faltando = [m for m, _ in DEPENDENCIAS if not _tem(m)]
+def _cmd_existe(cmd: str) -> bool:
+    try:
+        subprocess.check_call([cmd, "--version"],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except Exception:
+        return False
+
+
+def garantir_node():
+    if not _cmd_existe("npm"):
+        print("[bootstrap] Node.js/npm NAO encontrado.")
+        print("[bootstrap] Instale Node.js 18+ em https://nodejs.org/ e tente novamente.")
+        return False
+    print("[bootstrap] npm: OK")
+    return True
+
+
+def garantir_9router():
+    if _cmd_existe("9router"):
+        print("[bootstrap] 9router: OK")
+        return True
+    print("[bootstrap] 9router NAO encontrado. Instalando via npm...")
+    try:
+        subprocess.check_call(
+            ["npm", "install", "-g", "--allow-scripts=9router", "9router"]
+        )
+    except subprocess.CalledProcessError:
+        print("[bootstrap] Falha ao instalar 9router via npm.")
+        return False
+    if _cmd_existe("9router"):
+        print("[bootstrap] 9router instalado com sucesso!")
+        return True
+    print("[bootstrap] Instalado mas comando ainda nao encontrado. Reinicie o terminal.")
+    return False
+
+
+def garantir_deps_python():
+    faltando = [m for m, _ in DEPENDENCIAS_PY if not _tem(m)]
     if not faltando:
-        print("[bootstrap] Todas as dependencias estao presentes.")
+        print("[bootstrap] Dependencias Python: OK")
         return True
 
-    print("[bootstrap] Dependencias faltando:", ", ".join(faltando))
+    print("[bootstrap] Dependencias Python faltando:", ", ".join(faltando))
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "--version"],
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except subprocess.CalledProcessError:
-        print("[bootstrap] pip nao encontrado. Tentando ensurepip...")
         try:
             import ensurepip
             ensurepip.bootstrap(upgrade=True, default_pip=True)
@@ -86,7 +121,7 @@ def garantir_deps():
             return False
 
     ok = True
-    for modulo, pkg in DEPENDENCIAS:
+    for modulo, pkg in DEPENDENCIAS_PY:
         if _tem(modulo):
             continue
         if not _instalar(pkg):
@@ -104,11 +139,20 @@ def main():
     print("=" * 60)
     print(f"Python: {sys.executable} ({sys.version.split()[0]})")
     print(f"Local : {BASE_DIR}")
+    print()
 
-    if not garantir_deps():
+    if not garantir_node():
+        input("Pressione Enter para sair...")
+        sys.exit(1)
+
+    if not garantir_9router():
+        input("Pressione Enter para sair...")
+        sys.exit(1)
+
+    if not garantir_deps_python():
         print()
-        print("[bootstrap] NAO foi possivel preparar o ambiente.")
-        print("[bootstrap] Tente: pip install -r requirements.txt")
+        print("[bootstrap] NAO foi possivel preparar o ambiente Python.")
+        print("[bootstrap] Tente manualmente: pip install -r requirements.txt")
         input("Pressione Enter para sair...")
         sys.exit(1)
 

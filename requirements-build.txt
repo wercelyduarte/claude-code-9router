@@ -1,0 +1,4 @@
+# Dependencias apenas para gerar o executavel standalone
+# Uso: build.bat
+cx_Freeze>=7.2.0
+customtkinter>=5.2.0

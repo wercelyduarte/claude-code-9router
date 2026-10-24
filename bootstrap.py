@@ -65,9 +65,18 @@ def _instalar(pkg_pip):
         return False
 
 
-def _cmd_existe(cmd: str) -> bool:
+def _pausar():
     try:
-        subprocess.check_call([cmd, "--version"],
+        input("Pressione Enter para sair...")
+    except EOFError:
+        pass  # stdin nao e terminal (pipe), ignora
+
+
+def _cmd_existe(cmd: str) -> bool:
+    # shell=True necessario no Windows para encontrar .cmd do npm/9router
+    try:
+        subprocess.check_call(f"{cmd} --version",
+                              shell=True,
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return True
     except Exception:
@@ -90,7 +99,8 @@ def garantir_9router():
     print("[bootstrap] 9router NAO encontrado. Instalando via npm...")
     try:
         subprocess.check_call(
-            ["npm", "install", "-g", "--allow-scripts=9router", "9router"]
+            "npm install -g --allow-scripts=9router 9router",
+            shell=True,
         )
     except subprocess.CalledProcessError:
         print("[bootstrap] Falha ao instalar 9router via npm.")
@@ -142,18 +152,18 @@ def main():
     print()
 
     if not garantir_node():
-        input("Pressione Enter para sair...")
+        _pausar()
         sys.exit(1)
 
     if not garantir_9router():
-        input("Pressione Enter para sair...")
+        _pausar()
         sys.exit(1)
 
     if not garantir_deps_python():
         print()
         print("[bootstrap] NAO foi possivel preparar o ambiente Python.")
         print("[bootstrap] Tente manualmente: pip install -r requirements.txt")
-        input("Pressione Enter para sair...")
+        _pausar()
         sys.exit(1)
 
     print()

@@ -491,7 +491,8 @@ class App(ctk.CTk):
         self._log("[install] npm install -g --allow-scripts=9router 9router")
         try:
             proc = subprocess.Popen(
-                ["npm", "install", "-g", "--allow-scripts=9router", "9router"],
+                "npm install -g --allow-scripts=9router 9router",
+                shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -506,8 +507,9 @@ class App(ctk.CTk):
                 return True
             self._log(f"[install] npm saiu com código {proc.returncode}.")
             return False
-        except FileNotFoundError:
-            self._log("[install] ERRO: npm não encontrado. Instale Node.js 18+ em https://nodejs.org/")
+        except Exception as e:
+            self._log(f"[install] ERRO: {e}")
+            self._log("[install] Instale Node.js 18+ em https://nodejs.org/")
             return False
 
     def _start_router(self):
@@ -516,7 +518,8 @@ class App(ctk.CTk):
         self._log(self.t("log_starting"))
         try:
             self._process = subprocess.Popen(
-                ["9router"],
+                "9router",
+                shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,

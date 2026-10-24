@@ -41,6 +41,8 @@ HEADROOM_PORT   = 8787   # where 9Router's Headroom mode sends requests (its hea
 HEADROOM_VENV   = Path(os.environ.get("APPDATA", "")) / "9RouterManager" / "headroom-venv"
 HEADROOM_EXE    = HEADROOM_VENV / "Scripts" / "headroom.exe"
 HEADROOM_CMD    = f'"{HEADROOM_EXE}" proxy --host 127.0.0.1 --port {HEADROOM_PORT}'
+CAVEMAN_PORT    = 8788
+CAVEMAN_REPORT  = Path.home() / ".caveman" / "reports" / "caveman-stats.html"
 CAVEMAN_INSTALL = "npx -y @caveman-ai/cli@latest"
 CAVEMAN_UNINSTALL = "npx -y github:JuliusBrussee/caveman -- --uninstall && npm uninstall -g @caveman-ai/cli"
 SELECTED        = ("#1f538d", "#1f538d")
@@ -76,6 +78,16 @@ TEXTS: dict[str, dict[str, str]] = {
         "btn_cv_telemetry":"Desligar telemetria",
         "btn_uninstall":   "Desinstalar",
         "saver_hr_down":   "Headroom (ligado no 9Router, mas não está rodando — veja a aba Economia)",
+        "tool_other":      "Aponta para outro proxy — {url}",
+        "tool_other_cv":   "Usa o Caveman, não o 9Router — {url}",
+        "route_caveman":   "O Claude Code está passando pelo Caveman, não pelo 9Router. Por isso o 9Router não conta esse uso — a economia dele aparece no card do Caveman abaixo.",
+        "cv_card_title":   "Economia do Caveman (últimos 30 dias)",
+        "cv_saved":        "Tokens economizados",
+        "cv_requests":     "Requisições",
+        "cv_pct":          "da entrada",
+        "cv_usd":          "Equivalente (USD)",
+        "btn_cv_report":   "Abrir relatório",
+        "cv_note":         "Estimativa do próprio Caveman. Com assinatura (Pro/Max) o valor em USD é só uma referência — não reduz sua fatura.",
         "version":         "v0.5.x",
         "btn_background":  "Rodar em segundo plano",
         "theme_dark":      "Tema: escuro",
@@ -103,7 +115,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "saver_on":        "Modos de economia ativos no 9Router: {modes}",
         "saver_off":       "Nenhum modo de economia ativo. Ative em Economia de Tokens.",
         # Usage
-        "savings_title":   "Uso e Economia",
+        "savings_title":   "Uso pelo 9Router",
         "stat_tokens":     "Tokens",
         "stat_requests":   "Requisições",
         "stat_cost":       "Custo (USD)",
@@ -178,6 +190,16 @@ TEXTS: dict[str, dict[str, str]] = {
         "btn_cv_telemetry":"Turn off telemetry",
         "btn_uninstall":   "Uninstall",
         "saver_hr_down":   "Headroom (on in 9Router, but not running — see the Savers tab)",
+        "tool_other":      "Points to another proxy — {url}",
+        "tool_other_cv":   "Uses Caveman, not 9Router — {url}",
+        "route_caveman":   "Claude Code goes through Caveman, not 9Router, so 9Router doesn't count that usage — its savings show in the Caveman card below.",
+        "cv_card_title":   "Caveman savings (last 30 days)",
+        "cv_saved":        "Tokens saved",
+        "cv_requests":     "Requests",
+        "cv_pct":          "of input",
+        "cv_usd":          "Equivalent (USD)",
+        "btn_cv_report":   "Open report",
+        "cv_note":         "Caveman's own estimate. On a subscription (Pro/Max) the USD value is only a reference — it doesn't lower your bill.",
         "version":         "v0.5.x",
         "btn_background":  "Run in background",
         "theme_dark":      "Theme: dark",
@@ -205,7 +227,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "saver_on":        "Saving modes active in 9Router: {modes}",
         "saver_off":       "No saving mode active. Turn one on in Token Saver.",
         # Usage
-        "savings_title":   "Usage and Savings",
+        "savings_title":   "Usage through 9Router",
         "stat_tokens":     "Tokens",
         "stat_requests":   "Requests",
         "stat_cost":       "Cost (USD)",
@@ -354,6 +376,27 @@ def list_tools() -> list[dict]:
     return json.loads(out[start:]) if start >= 0 else []
 
 
+def tool_route(tool: dict) -> str:
+    """'router' if the tool really points at 9Router, 'other' if at another proxy, else 'off'.
+    9router's own 'configured' flag is true for ANY custom base URL (e.g. Caveman's)."""
+    url = tool.get("baseUrl") or ""
+    if not url:
+        return "off"
+    return "router" if f":{ROUTER_PORT}" in url else "other"
+
+
+def caveman_stats() -> dict | None:
+    r = subprocess.run("caveman stats --json", shell=True, capture_output=True, text=True, stdin=subprocess.DEVNULL,
+                       creationflags=NO_WINDOW, encoding="utf-8", errors="replace")
+    start = r.stdout.find("{")
+    if r.returncode != 0 or start < 0:
+        return None
+    try:
+        return json.loads(r.stdout[start:]).get("totals")
+    except ValueError:
+        return None
+
+
 # ── Password dialog ───────────────────────────────────────────────────────────
 
 class PasswordDialog(ctk.CTkToplevel):
@@ -419,6 +462,8 @@ class App(ctk.CTk):
         self._hr_proc: subprocess.Popen | None = None
         self._hr_installing = False
         self._cv_version: str | None = None
+        self._cv_stats: dict | None = None
+        self._ticks = 0
 
         self._build_ui()
         self._apply_lang_buttons()
@@ -593,6 +638,8 @@ class App(ctk.CTk):
             self._steps[key] = (mark, lbl, btn)
         self._traffic_hint = self._reg(ctk.CTkLabel(check, text=self.t("step_traffic_hint"), font=ctk.CTkFont(size=10),
                                                     text_color="gray"), "step_traffic_hint")
+        self._route_note = self._reg(ctk.CTkLabel(check, text=self.t("route_caveman"), font=ctk.CTkFont(size=11, weight="bold"),
+                                                  text_color="#3498db", wraplength=600, justify="left"), "route_caveman")
         self._saver_lbl = ctk.CTkLabel(check, text="", font=ctk.CTkFont(size=11), text_color="gray",
                                        wraplength=600, justify="left")
         self._saver_lbl.pack(anchor="w", padx=16, pady=(6, 10))
@@ -624,9 +671,38 @@ class App(ctk.CTk):
         self._usage_note = ctk.CTkLabel(usage, text="", font=ctk.CTkFont(size=10), text_color="gray")
         self._usage_note.pack(anchor="w", padx=16, pady=(2, 8))
 
+        # Caveman card (shown only when Caveman is installed)
+        self._cv_card = ctk.CTkFrame(frame)
+        hdr = ctk.CTkFrame(self._cv_card, fg_color="transparent")
+        hdr.pack(fill="x", padx=16, pady=(10, 6))
+        self._reg(ctk.CTkLabel(hdr, text=self.t("cv_card_title"), font=ctk.CTkFont(size=13, weight="bold")),
+                  "cv_card_title").pack(side="left")
+        self._reg(ctk.CTkButton(hdr, text=self.t("btn_cv_report"), width=130, height=26, font=ctk.CTkFont(size=11),
+                                command=lambda: CAVEMAN_REPORT.exists() and os.startfile(CAVEMAN_REPORT)),
+                  "btn_cv_report").pack(side="right")
+        row = ctk.CTkFrame(self._cv_card, fg_color="transparent")
+        row.pack(fill="x", padx=16, pady=(0, 4))
+        self._cv_vals = {}
+        for key, color in (("cv_saved", "#27ae60"), ("cv_pct", None), ("cv_requests", None), ("cv_usd", "#e67e22")):
+            v = ctk.CTkLabel(row, text="—", font=ctk.CTkFont(size=22, weight="bold"),
+                             **({"text_color": color} if color else {}))
+            v.pack(side="left", padx=(0, 2))
+            self._reg(ctk.CTkLabel(row, text=self.t(key), font=ctk.CTkFont(size=10), text_color="gray"),
+                      key).pack(side="left", padx=(0, 18))
+            self._cv_vals[key] = v
+        self._reg(ctk.CTkLabel(self._cv_card, text=self.t("cv_note"), font=ctk.CTkFont(size=10), text_color="gray",
+                               wraplength=600, justify="left"), "cv_note").pack(anchor="w", padx=16, pady=(2, 8))
+
     def _refresh_snapshot_views(self):
         s = self._snap
-        connected = sum(1 for t in (self._tools or []) if t.get("configured"))
+        tools = self._tools or []
+        connected = sum(1 for t in tools if tool_route(t) == "router")
+        claude_elsewhere = any(t.get("id") == "claude" and tool_route(t) == "other" for t in tools)
+        if claude_elsewhere:
+            self._route_note.pack(anchor="w", padx=16, pady=(6, 0), before=self._saver_lbl)
+        else:
+            self._route_note.pack_forget()
+        self._refresh_caveman_card()
         done = {
             "server": self._running,
             "password": bool(s["password"]),
@@ -743,11 +819,18 @@ class App(ctk.CTk):
         for tool in self._tools:
             row = ctk.CTkFrame(self._tools_list, fg_color="transparent")
             row.pack(fill="x", padx=12, pady=3)
-            on = bool(tool.get("configured"))
-            ctk.CTkLabel(row, text="●", text_color="#27ae60" if on else "gray50", width=18).pack(side="left")
+            route = tool_route(tool)
+            url = tool.get("baseUrl") or ""
+            dot = {"router": "#27ae60", "other": "#3498db"}.get(route, "gray50")
+            ctk.CTkLabel(row, text="●", text_color=dot, width=18).pack(side="left")
             ctk.CTkLabel(row, text=tool.get("name", tool.get("id", "?")), width=150, anchor="w",
                          font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
-            status = self.t("tool_on", url=tool.get("baseUrl") or "") if on else self.t("tool_off")
+            if route == "router":
+                status = self.t("tool_on", url=url)
+            elif route == "other":
+                status = self.t("tool_other_cv" if f":{CAVEMAN_PORT}" in url else "tool_other", url=url)
+            else:
+                status = self.t("tool_off")
             ctk.CTkLabel(row, text=status, anchor="w", text_color="gray", font=ctk.CTkFont(size=11)).pack(side="left", padx=6)
             ctk.CTkButton(row, text=self.t("btn_remove"), width=80, height=26, fg_color="gray50", state=state,
                           command=lambda i=tool["id"]: self._reset(i)).pack(side="right", padx=(4, 0))
@@ -868,13 +951,29 @@ class App(ctk.CTk):
             r = subprocess.run("caveman --version", shell=True, capture_output=True, text=True,
                                stdin=subprocess.DEVNULL, creationflags=NO_WINDOW, encoding="utf-8", errors="replace")
             version = (r.stdout.strip().splitlines() or [""])[-1] if r.returncode == 0 else None
-            self.after(0, self._set_caveman_version, version)
+            stats = caveman_stats() if version else None
+            self.after(0, self._set_caveman_version, version, stats)
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _set_caveman_version(self, version: str | None):
+    def _set_caveman_version(self, version: str | None, stats: dict | None):
         self._cv_version = version
+        self._cv_stats = stats
         self._refresh_savers()
+        self._refresh_caveman_card()
+
+    def _refresh_caveman_card(self):
+        st = self._cv_stats
+        if not st:
+            self._cv_card.pack_forget()
+            return
+        self._cv_card.pack(fill="x", pady=(0, 8))
+        saved, before = st.get("saved_tokens") or 0, st.get("before_tokens") or 0
+        usd = st.get("api_equivalent_savings_usd") or 0
+        self._cv_vals["cv_saved"].configure(text=f"{int(saved):,}".replace(",", "."))
+        self._cv_vals["cv_pct"].configure(text=f"{saved / before:.1%}" if before else "—")
+        self._cv_vals["cv_requests"].configure(text=str(st.get("requests") or 0))
+        self._cv_vals["cv_usd"].configure(text=f"${usd:.4f}")
 
     def _open_terminal(self, title: str, command: str):
         # Interactive installers need a real console the user can read and answer
@@ -1074,7 +1173,22 @@ class App(ctk.CTk):
             self.after(0, self._apply_snapshot, snap)
 
         threading.Thread(target=work, daemon=True).start()
+        self._ticks += 1
+        if self._ticks % 12 == 0:   # every minute: caveman stats and tool routes spawn node, so less often
+            self._check_caveman()
+            self._load_tools_quiet()
         self.after(5000, self._periodic)
+
+    def _load_tools_quiet(self):
+        def work():
+            try:
+                tools = list_tools()
+            except Exception:
+                return
+            self.after(0, self._set_tools, tools)
+
+        if not self._tools_busy:
+            threading.Thread(target=work, daemon=True).start()
 
     def _apply_snapshot(self, snap: dict):
         self._snap = snap

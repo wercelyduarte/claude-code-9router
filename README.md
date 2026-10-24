@@ -108,6 +108,7 @@ Click **Abrir Dashboard** (Open Dashboard) → **Providers**. The quickest free 
 | "Login failed" when connecting | Wrong dashboard password. If you never created one, use `123456`. After 5 errors the login locks for a while. |
 | A tool shows "Connected" but doesn't work | Restart the tool and check that a provider is added in the dashboard. |
 | Numbers stay at 0 | Follow the checklist on the Dashboard. Usually no tool is connected yet, or the tool wasn't restarted after connecting. |
+| 9Router shows 0 but Claude Code is in use | Claude Code is probably going through **Caveman** (installed before connecting to 9Router). The Dashboard shows a blue note and a **Caveman savings** card with its numbers. Only one of them can handle Claude Code: to move it to 9Router, run `caveman disable claude`, then **Connect** Claude Code in the Tools tab. |
 | The window disappeared | It's in the tray next to the clock (you may need to click ^ to see hidden icons). |
 
 For command-line setup without the app, see [docs/manual-setup.md](docs/manual-setup.md).

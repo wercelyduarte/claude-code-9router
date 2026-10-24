@@ -26,14 +26,18 @@ build_exe_options = {
         "tkinter",
         "winreg",
         "ctypes",
+        "sqlite3",
+        "pystray",
+        "PIL",
     ],
     "excludes": [
         "matplotlib", "pandas", "scipy", "numpy",
-        "IPython", "pytest", "PyQt5", "PyQt6",
-        "PIL", "cv2",
+        "IPython", "pytest", "PyQt5", "PyQt6", "cv2",
     ],
     "include_files": [
         (ctk_dir, "customtkinter"),  # temas e imagens do customtkinter
+        ("icone.ico", "icone.ico"),
+        ("icone.png", "icone.png"),  # icone da bandeja
     ],
     "include_msvcr": True,
     "optimize": 1,
@@ -50,6 +54,7 @@ executables = [
         "app.py",
         base=base,
         target_name=f"{APP_NAME}.exe",
+        icon="icone.ico",
         shortcut_name="9Router Manager",
         shortcut_dir="DesktopFolder",
     )

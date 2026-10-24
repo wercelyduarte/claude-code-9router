@@ -1,12 +1,13 @@
 """
 9Router Manager — GUI para gerenciar o 9router e conectar ferramentas de IA
-Requires: pip install customtkinter
+Requires: pip install customtkinter pystray Pillow
 """
 
 import customtkinter as ctk
 import subprocess
 import threading
 import os
+import sys
 import json
 import sqlite3
 import winreg
@@ -15,6 +16,12 @@ import webbrowser
 import socket
 from pathlib import Path
 
+try:
+    import pystray
+    from PIL import Image
+except ImportError:  # without them the X button simply quits
+    pystray = None
+
 # ─────────────────────────────────────────
 ROUTER_PORT     = 20128
 ROUTER_ENDPOINT = f"http://localhost:{ROUTER_PORT}"
@@ -22,11 +29,22 @@ ROUTER_LOCAL    = f"http://127.0.0.1:{ROUTER_PORT}"
 ROUTER_V1       = f"{ROUTER_ENDPOINT}/v1"
 DASH            = f"{ROUTER_ENDPOINT}/dashboard"
 ROUTER_DB       = Path(os.environ.get("APPDATA", "")) / "9router" / "db" / "data.sqlite"
-DEFAULT_PASSWORD = "123456"
 ENV_KEY         = "ANTHROPIC_BASE_URL"   # set by older versions of this app; migrated away on start
 # --log skips the interactive menu (which exits without a keyboard); 127.0.0.1 keeps it off the LAN
 ROUTER_CMD      = f"9router --host 127.0.0.1 --port {ROUTER_PORT} --no-browser --log --skip-update"
 NO_WINDOW       = subprocess.CREATE_NO_WINDOW
+BASE_DIR        = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
+ICON_ICO        = BASE_DIR / "icone.ico"
+ICON_PNG        = BASE_DIR / "icone.png"
+CONFIG_FILE     = Path(os.environ.get("APPDATA", "")) / "9RouterManager" / "config.json"
+HEADROOM_PORT   = 8787   # where 9Router's Headroom mode sends requests (its headroomUrl default)
+HEADROOM_VENV   = Path(os.environ.get("APPDATA", "")) / "9RouterManager" / "headroom-venv"
+HEADROOM_EXE    = HEADROOM_VENV / "Scripts" / "headroom.exe"
+HEADROOM_CMD    = f'"{HEADROOM_EXE}" proxy --host 127.0.0.1 --port {HEADROOM_PORT}'
+CAVEMAN_INSTALL = "npx -y @caveman-ai/cli@latest"
+CAVEMAN_UNINSTALL = "npx -y github:JuliusBrussee/caveman -- --uninstall && npm uninstall -g @caveman-ai/cli"
+SELECTED        = ("#1f538d", "#1f538d")
+HOVER           = ("gray80", "gray25")
 # ─────────────────────────────────────────
 
 TEXTS: dict[str, dict[str, str]] = {
@@ -34,29 +52,62 @@ TEXTS: dict[str, dict[str, str]] = {
         "app_subtitle":    "Gateway de IA",
         "nav_dashboard":   "Painel",
         "nav_tools":       "Ferramentas",
+        "nav_savers":      "Economia",
         "nav_logs":        "Logs",
+        # Savers
+        "savers_title":    "Economia de tokens",
+        "savers_intro":    "Extras que reduzem os tokens enviados e recebidos. O 9Router já tem os modos Caveman e Headroom; o Headroom precisa do programa abaixo rodando para funcionar.",
+        "hr_title":        "Headroom — comprime o que o agente lê",
+        "hr_text":         "Comprime saídas de ferramentas, logs e JSON antes de chegarem ao modelo (20% a 90% menos tokens). Roda no seu PC, na porta 8787, onde o modo Headroom do 9Router envia as requisições. Inicia junto com o 9Router.",
+        "hr_missing":      "Não instalado",
+        "hr_stopped":      "Instalado — parado",
+        "hr_running":      "Rodando na porta 8787 ✓",
+        "hr_installing":   "Instalando (pode levar alguns minutos)…",
+        "btn_install":     "Instalar",
+        "btn_start_short": "Iniciar",
+        "btn_stop_short":  "Parar",
+        "cv_title":        "Caveman — respostas curtas e mais",
+        "cv_text":         "Faz o agente responder curto (código intacto) e encolhe logs, JSON e páginas web. A instalação abre uma janela onde você revisa e confirma o que muda.",
+        "cv_order":        "Importante: conecte suas ferramentas ao 9Router (aba Ferramentas) ANTES de instalar. O Caveman não altera uma ferramenta que já aponta para outro endereço, então a rota pelo 9Router continua.",
+        "cv_telemetry":    "O Caveman envia estatísticas de uso anônimas (sem conteúdo, com seu IP). Use 'Desligar telemetria' para parar.",
+        "cv_missing":      "Não instalado",
+        "cv_installed":    "Instalado ✓ ({v})",
+        "btn_cv_status":   "Ver status",
+        "btn_cv_telemetry":"Desligar telemetria",
+        "btn_uninstall":   "Desinstalar",
+        "saver_hr_down":   "Headroom (ligado no 9Router, mas não está rodando — veja a aba Economia)",
         "version":         "v0.5.x",
+        "btn_background":  "Rodar em segundo plano",
+        "theme_dark":      "Tema: escuro",
+        "theme_light":     "Tema: claro",
         # Dashboard
         "dash_title":      "Painel",
         "status_running":  "Executando",
         "status_stopped":  "Parado",
         "btn_start":       "Iniciar 9Router",
         "btn_stop":        "Parar 9Router",
-        "card_port":       "Porta",
-        "card_tools":      "Ferramentas conectadas",
-        "card_password":   "Senha do dashboard",
-        "pw_unknown":      "—",
-        "pw_default":      "Padrão (123456)",
-        "pw_custom":       "Criada ✓",
-        "pw_warn":         "Você ainda não criou uma senha: o 9Router está usando a padrão 123456. Crie a sua no dashboard.",
-        "btn_password":    "Criar / alterar senha",
-        "dash_hint":       "Depois de iniciar, conecte suas ferramentas de IA na aba Ferramentas.",
+        # Checklist
+        "check_title":     "Para economizar tokens",
+        "check_all_ok":    "Tudo pronto — o 9Router está sendo usado.",
+        "check_missing":   "Falta {n} passo(s). Siga a lista abaixo.",
+        "step_server":     "1. 9Router em execução",
+        "step_password":   "2. Senha própria criada (não a padrão 123456)",
+        "step_provider":   "3. Provedor de IA adicionado ({n})",
+        "step_tool":       "4. Ferramenta conectada ao 9Router ({n})",
+        "step_traffic":    "5. Uso passando pelo 9Router",
+        "step_traffic_hint": "Reinicie a ferramenta conectada e use-a normalmente.",
+        "act_start":       "Iniciar",
+        "act_password":    "Criar senha",
+        "act_provider":    "Abrir Providers",
+        "act_tool":        "Conectar ferramenta",
+        "saver_on":        "Modos de economia ativos no 9Router: {modes}",
+        "saver_off":       "Nenhum modo de economia ativo. Ative em Economia de Tokens.",
         # Usage
         "savings_title":   "Uso e Economia",
         "stat_tokens":     "Tokens",
         "stat_requests":   "Requisições",
         "stat_cost":       "Custo (USD)",
-        "stat_empty":      "Nenhum uso registrado ainda. Os números aparecem quando alguma ferramenta usar o 9Router.",
+        "stat_empty":      "Nenhum uso registrado ainda.",
         "btn_open_dash":   "Abrir Dashboard",
         "btn_token_saver": "Economia de Tokens",
         # Tools
@@ -86,6 +137,10 @@ TEXTS: dict[str, dict[str, str]] = {
         "pw_dialog_text":  "Digite a senha do dashboard do 9Router.\nSe você nunca criou uma, a senha é 123456.\nAtenção: após 5 tentativas erradas o login é bloqueado.",
         "btn_ok":          "OK",
         "btn_cancel":      "Cancelar",
+        # Tray
+        "tray_open":       "Abrir 9Router Manager",
+        "tray_quit":       "Sair (para o 9Router)",
+        "tray_notice":     "O 9Router Manager continua rodando aqui. Clique no ícone para abrir.",
         # Logs
         "logs_title":      "Logs",
         "btn_clear":       "Limpar",
@@ -99,29 +154,62 @@ TEXTS: dict[str, dict[str, str]] = {
         "app_subtitle":    "AI Gateway",
         "nav_dashboard":   "Dashboard",
         "nav_tools":       "Tools",
+        "nav_savers":      "Savers",
         "nav_logs":        "Logs",
+        # Savers
+        "savers_title":    "Token savers",
+        "savers_intro":    "Extras that cut the tokens sent and received. 9Router already has Caveman and Headroom modes; Headroom needs the program below running to work.",
+        "hr_title":        "Headroom — compresses what the agent reads",
+        "hr_text":         "Compresses tool outputs, logs and JSON before they reach the model (20% to 90% fewer tokens). Runs on your PC on port 8787, where 9Router's Headroom mode sends requests. Starts together with 9Router.",
+        "hr_missing":      "Not installed",
+        "hr_stopped":      "Installed — stopped",
+        "hr_running":      "Running on port 8787 ✓",
+        "hr_installing":   "Installing (may take a few minutes)…",
+        "btn_install":     "Install",
+        "btn_start_short": "Start",
+        "btn_stop_short":  "Stop",
+        "cv_title":        "Caveman — short answers and more",
+        "cv_text":         "Makes the agent answer briefly (code untouched) and shrinks logs, JSON and web pages. The install opens a window where you review and confirm what changes.",
+        "cv_order":        "Important: connect your tools to 9Router (Tools tab) BEFORE installing. Caveman leaves a tool alone when it already points to another address, so the 9Router route stays.",
+        "cv_telemetry":    "Caveman sends anonymous usage statistics (no content, with your IP). Use 'Turn off telemetry' to stop it.",
+        "cv_missing":      "Not installed",
+        "cv_installed":    "Installed ✓ ({v})",
+        "btn_cv_status":   "Show status",
+        "btn_cv_telemetry":"Turn off telemetry",
+        "btn_uninstall":   "Uninstall",
+        "saver_hr_down":   "Headroom (on in 9Router, but not running — see the Savers tab)",
         "version":         "v0.5.x",
+        "btn_background":  "Run in background",
+        "theme_dark":      "Theme: dark",
+        "theme_light":     "Theme: light",
         # Dashboard
         "dash_title":      "Dashboard",
         "status_running":  "Running",
         "status_stopped":  "Stopped",
         "btn_start":       "Start 9Router",
         "btn_stop":        "Stop 9Router",
-        "card_port":       "Port",
-        "card_tools":      "Connected tools",
-        "card_password":   "Dashboard password",
-        "pw_unknown":      "—",
-        "pw_default":      "Default (123456)",
-        "pw_custom":       "Created ✓",
-        "pw_warn":         "You haven't created a password yet: 9Router is using the default 123456. Create your own in the dashboard.",
-        "btn_password":    "Create / change password",
-        "dash_hint":       "After starting, connect your AI tools in the Tools tab.",
+        # Checklist
+        "check_title":     "To save tokens",
+        "check_all_ok":    "All set — 9Router is being used.",
+        "check_missing":   "{n} step(s) missing. Follow the list below.",
+        "step_server":     "1. 9Router running",
+        "step_password":   "2. Own password created (not the default 123456)",
+        "step_provider":   "3. AI provider added ({n})",
+        "step_tool":       "4. Tool connected to 9Router ({n})",
+        "step_traffic":    "5. Usage going through 9Router",
+        "step_traffic_hint": "Restart the connected tool and use it as usual.",
+        "act_start":       "Start",
+        "act_password":    "Create password",
+        "act_provider":    "Open Providers",
+        "act_tool":        "Connect a tool",
+        "saver_on":        "Saving modes active in 9Router: {modes}",
+        "saver_off":       "No saving mode active. Turn one on in Token Saver.",
         # Usage
         "savings_title":   "Usage and Savings",
         "stat_tokens":     "Tokens",
         "stat_requests":   "Requests",
         "stat_cost":       "Cost (USD)",
-        "stat_empty":      "No usage recorded yet. Numbers appear once a tool sends requests through 9Router.",
+        "stat_empty":      "No usage recorded yet.",
         "btn_open_dash":   "Open Dashboard",
         "btn_token_saver": "Token Saver",
         # Tools
@@ -151,6 +239,10 @@ TEXTS: dict[str, dict[str, str]] = {
         "pw_dialog_text":  "Enter your 9Router dashboard password.\nIf you never created one, it is 123456.\nWarning: login locks after 5 wrong attempts.",
         "btn_ok":          "OK",
         "btn_cancel":      "Cancel",
+        # Tray
+        "tray_open":       "Open 9Router Manager",
+        "tray_quit":       "Quit (stops 9Router)",
+        "tray_notice":     "9Router Manager keeps running here. Click the icon to open it.",
         # Logs
         "logs_title":      "Logs",
         "btn_clear":       "Clear",
@@ -162,8 +254,22 @@ TEXTS: dict[str, dict[str, str]] = {
     },
 }
 
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
+
+# ── Preferences ───────────────────────────────────────────────────────────────
+
+def load_config() -> dict:
+    try:
+        return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_config(cfg: dict):
+    try:
+        CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        CONFIG_FILE.write_text(json.dumps(cfg), encoding="utf-8")
+    except OSError:
+        pass
 
 
 # ── System helpers ────────────────────────────────────────────────────────────
@@ -217,26 +323,28 @@ def _db():
     return sqlite3.connect(f"file:{ROUTER_DB}?mode=ro", uri=True, timeout=2)
 
 
-def password_created() -> bool | None:
-    """True if a dashboard password was created, False if still the default, None if unknown.
-    Reads the DB instead of trying a login, because failed logins count toward 9router's lockout."""
+def router_snapshot() -> dict:
+    """Password/provider/usage/saver state from 9router's DB. Reading the DB instead of trying a
+    login matters: failed logins count toward 9router's lockout."""
+    snap = {"password": None, "providers": 0, "requests": 0, "tokens": 0, "cost": 0.0, "savers": []}
     try:
         with _db() as c:
             row = c.execute("select data from settings where id=1").fetchone()
-        return bool(row and json.loads(row[0]).get("password"))
-    except Exception:
-        return None
-
-
-def usage_totals() -> tuple[int, int, float] | None:
-    try:
-        with _db() as c:
-            return c.execute(
+            settings = json.loads(row[0]) if row else {}
+            snap["password"] = bool(settings.get("password"))
+            snap["providers"] = c.execute(
+                "select count(*) from providerConnections where isActive=1").fetchone()[0]
+            snap["requests"], snap["tokens"], snap["cost"] = c.execute(
                 "select count(*), coalesce(sum(coalesce(tokens, coalesce(promptTokens,0)+coalesce(completionTokens,0))),0),"
-                " coalesce(sum(cost),0) from usageHistory"
-            ).fetchone()
+                " coalesce(sum(cost),0) from usageHistory").fetchone()
+        if settings.get("cavemanEnabled"):
+            level = settings.get("cavemanLevel")
+            snap["savers"].append(f"Caveman ({level})" if level else "Caveman")
+        if settings.get("headroomEnabled"):
+            snap["savers"].append("Headroom")
     except Exception:
-        return None
+        pass
+    return snap
 
 
 def list_tools() -> list[dict]:
@@ -262,7 +370,7 @@ class PasswordDialog(ctk.CTkToplevel):
         row = ctk.CTkFrame(self, fg_color="transparent")
         row.pack(pady=14)
         ctk.CTkButton(row, text=t("btn_ok"), width=100, command=self._ok).pack(side="left", padx=6)
-        ctk.CTkButton(row, text=t("btn_cancel"), width=100, fg_color="gray30", command=self.destroy).pack(side="left", padx=6)
+        ctk.CTkButton(row, text=t("btn_cancel"), width=100, fg_color="gray50", command=self.destroy).pack(side="left", padx=6)
 
         self._entry.bind("<Return>", lambda _e: self._ok())
         self.bind("<Escape>", lambda _e: self.destroy())
@@ -285,33 +393,47 @@ class PasswordDialog(ctk.CTkToplevel):
 
 class App(ctk.CTk):
     def __init__(self):
+        self._cfg = load_config()
+        ctk.set_appearance_mode(self._cfg.get("theme", "dark"))
+        ctk.set_default_color_theme("blue")
         super().__init__()
         self.title("9Router Manager")
-        self.geometry("900x660")
+        self.geometry("920x700")
         self.resizable(True, True)
-        self.minsize(760, 560)
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.minsize(780, 560)
+        if ICON_ICO.exists():
+            self.iconbitmap(str(ICON_ICO))
+        self.protocol("WM_DELETE_WINDOW", self.hide_to_tray)
 
         self._process: subprocess.Popen | None = None
         self._running = False
-        self._lang = "pt"
+        self._lang = self._cfg.get("lang", "pt")
         self._translatable: list[tuple] = []   # (widget, text_key)
         self._current_tab = "Dashboard"
         self._tools: list[dict] | None = None
         self._tools_busy = False
         self._password: str | None = None      # memory only, never written to disk
-        self._pw_state: bool | None = None
+        self._snap = router_snapshot()
+        self._tray = None
+        self._tray_notified = False
+        self._hr_proc: subprocess.Popen | None = None
+        self._hr_installing = False
+        self._cv_version: str | None = None
 
         self._build_ui()
+        self._apply_lang_buttons()
         self._migrate_old_env()
         self._refresh_status()
-        self._refresh_password_status()
-        self._refresh_usage()
-        self._load_tools()
+        self._refresh_snapshot_views()
+        self._refresh_savers()
+        # Worker threads call self.after(), which fails until mainloop runs, so start them from inside it
+        self.after(0, self._load_tools)
+        self.after(0, self._check_caveman)
+        self.after(0, self._start_tray)
         self.after(1000, self._watch_port)
-        self.after(10000, self._periodic)
+        self.after(5000, self._periodic)
 
-    # ── Translation ───────────────────────────────────────────────────────────
+    # ── Translation / theme ───────────────────────────────────────────────────
 
     def t(self, key: str, **kw) -> str:
         text = TEXTS[self._lang].get(key, TEXTS["en"].get(key, key))
@@ -323,58 +445,73 @@ class App(ctk.CTk):
 
     def _set_lang(self, lang: str):
         self._lang = lang
+        self._cfg["lang"] = lang
+        save_config(self._cfg)
         for widget, key in self._translatable:
             widget.configure(text=self.t(key))
         for tab_key, btn in self._nav_btns.items():
             btn.configure(text=self.t(f"nav_{tab_key.lower()}"))
-        self._nav_btns[self._current_tab].configure(fg_color=("#1f538d", "#1f538d"))
-        self._btn_pt.configure(fg_color="#1f538d" if lang == "pt" else "transparent")
-        self._btn_en.configure(fg_color="#1f538d" if lang == "en" else "transparent")
+        self._apply_lang_buttons()
         self._refresh_status()
-        self._refresh_password_status()
-        self._refresh_usage()
+        self._refresh_snapshot_views()
         self._render_tools()
+        self._refresh_savers()
+        if self._tray:
+            self._tray.update_menu()
+
+    def _apply_lang_buttons(self):
+        self._btn_pt.configure(fg_color=SELECTED if self._lang == "pt" else "transparent")
+        self._btn_en.configure(fg_color=SELECTED if self._lang == "en" else "transparent")
+        dark = ctk.get_appearance_mode().lower() == "dark"
+        self._theme_btn.configure(text=self.t("theme_dark") if dark else self.t("theme_light"))
+
+    def _toggle_theme(self):
+        new = "light" if ctk.get_appearance_mode().lower() == "dark" else "dark"
+        ctk.set_appearance_mode(new)
+        self._cfg["theme"] = new
+        save_config(self._cfg)
+        self._apply_lang_buttons()
 
     # ── UI construction ───────────────────────────────────────────────────────
 
     def _build_ui(self):
-        sidebar = ctk.CTkFrame(self, width=185, corner_radius=0)
+        sidebar = ctk.CTkFrame(self, width=190, corner_radius=0)
         sidebar.pack(side="left", fill="y")
         sidebar.pack_propagate(False)
 
         ctk.CTkLabel(sidebar, text="9Router", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(24, 4))
-        self._reg(
-            ctk.CTkLabel(sidebar, text=self.t("app_subtitle"), font=ctk.CTkFont(size=11), text_color="gray"),
-            "app_subtitle",
-        ).pack(pady=(0, 20))
+        self._reg(ctk.CTkLabel(sidebar, text=self.t("app_subtitle"), font=ctk.CTkFont(size=11), text_color="gray"),
+                  "app_subtitle").pack(pady=(0, 20))
 
         self._nav_btns: dict[str, ctk.CTkButton] = {}
-        for tab_key in ("Dashboard", "Tools", "Logs"):
-            btn = ctk.CTkButton(
-                sidebar, text=self.t(f"nav_{tab_key.lower()}"),
-                width=155, anchor="w",
-                fg_color="transparent", hover_color=("#2b2b2b", "#2b2b2b"),
-                command=lambda k=tab_key: self._show_tab(k),
-            )
+        for tab_key in ("Dashboard", "Tools", "Savers", "Logs"):
+            btn = ctk.CTkButton(sidebar, text=self.t(f"nav_{tab_key.lower()}"), width=160, anchor="w",
+                                fg_color="transparent", hover_color=HOVER, text_color=("gray10", "gray90"),
+                                command=lambda k=tab_key: self._show_tab(k))
             btn.pack(padx=12, pady=4)
             self._nav_btns[tab_key] = btn
 
         lang_row = ctk.CTkFrame(sidebar, fg_color="transparent")
-        lang_row.pack(side="bottom", pady=(0, 8))
-        self._btn_pt = ctk.CTkButton(lang_row, text="PT", width=62, height=26,
-                                     font=ctk.CTkFont(size=11, weight="bold"),
-                                     fg_color="#1f538d", hover_color="#1a4575",
+        lang_row.pack(side="bottom", pady=(0, 12))
+        self._btn_pt = ctk.CTkButton(lang_row, text="PT", width=64, height=26, font=ctk.CTkFont(size=11, weight="bold"),
+                                     hover_color=HOVER, text_color=("gray10", "gray90"),
                                      command=lambda: self._set_lang("pt"))
         self._btn_pt.pack(side="left", padx=(0, 4))
-        self._btn_en = ctk.CTkButton(lang_row, text="EN", width=62, height=26,
-                                     font=ctk.CTkFont(size=11, weight="bold"),
-                                     fg_color="transparent", hover_color="#1a4575",
+        self._btn_en = ctk.CTkButton(lang_row, text="EN", width=64, height=26, font=ctk.CTkFont(size=11, weight="bold"),
+                                     hover_color=HOVER, text_color=("gray10", "gray90"),
                                      command=lambda: self._set_lang("en"))
         self._btn_en.pack(side="left")
-        self._reg(
-            ctk.CTkLabel(sidebar, text=self.t("version"), font=ctk.CTkFont(size=10), text_color="gray"),
-            "version",
-        ).pack(side="bottom", pady=(0, 4))
+
+        self._theme_btn = ctk.CTkButton(sidebar, text="", width=160, height=26, font=ctk.CTkFont(size=11),
+                                        fg_color="transparent", border_width=1, hover_color=HOVER,
+                                        text_color=("gray10", "gray90"), command=self._toggle_theme)
+        self._theme_btn.pack(side="bottom", pady=(0, 6))
+        if pystray:
+            self._reg(ctk.CTkButton(sidebar, text=self.t("btn_background"), width=160, height=26,
+                                    font=ctk.CTkFont(size=11), fg_color="gray40", hover_color="gray30",
+                                    command=self.hide_to_tray), "btn_background").pack(side="bottom", pady=(0, 6))
+        self._reg(ctk.CTkLabel(sidebar, text=self.t("version"), font=ctk.CTkFont(size=10), text_color="gray"),
+                  "version").pack(side="bottom", pady=(0, 6))
 
         self._content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self._content.pack(side="left", fill="both", expand=True, padx=16, pady=16)
@@ -382,6 +519,7 @@ class App(ctk.CTk):
         self._tabs: dict[str, ctk.CTkFrame] = {}
         self._build_dashboard()
         self._build_tools()
+        self._build_savers()
         self._build_logs()
         self._show_tab("Dashboard")
 
@@ -391,21 +529,16 @@ class App(ctk.CTk):
             frame.pack_forget()
             self._nav_btns[n].configure(fg_color="transparent")
         self._tabs[name].pack(fill="both", expand=True)
-        self._nav_btns[name].configure(fg_color=("#1f538d", "#1f538d"))
-        if name == "Dashboard":
-            self._refresh_password_status()
+        self._nav_btns[name].configure(fg_color=SELECTED)
 
     def _link_button(self, parent, key: str, url: str, width=150):
-        return self._reg(
-            ctk.CTkButton(parent, text=self.t(key), width=width, height=26, font=ctk.CTkFont(size=11),
-                          command=lambda: webbrowser.open(url)),
-            key,
-        )
+        return self._reg(ctk.CTkButton(parent, text=self.t(key), width=width, height=26, font=ctk.CTkFont(size=11),
+                                       command=lambda: webbrowser.open(url)), key)
 
     # ── Dashboard tab ─────────────────────────────────────────────────────────
 
     def _build_dashboard(self):
-        frame = ctk.CTkFrame(self._content, fg_color="transparent")
+        frame = ctk.CTkScrollableFrame(self._content, fg_color="transparent")
         self._tabs["Dashboard"] = frame
 
         self._reg(ctk.CTkLabel(frame, text=self.t("dash_title"), font=ctk.CTkFont(size=18, weight="bold")),
@@ -415,7 +548,7 @@ class App(ctk.CTk):
         status_card = ctk.CTkFrame(frame)
         status_card.pack(fill="x", pady=(0, 8))
         row = ctk.CTkFrame(status_card, fg_color="transparent")
-        row.pack(fill="x", padx=16, pady=(12, 6))
+        row.pack(fill="x", padx=16, pady=12)
         self._status_dot = ctk.CTkLabel(row, text="●", font=ctk.CTkFont(size=22), text_color="#e74c3c", width=30)
         self._status_dot.pack(side="left")
         info = ctk.CTkFrame(row, fg_color="transparent")
@@ -423,40 +556,60 @@ class App(ctk.CTk):
         self._status_label = ctk.CTkLabel(info, text=self.t("status_stopped"), font=ctk.CTkFont(size=14, weight="bold"))
         self._status_label.pack(anchor="w")
         ctk.CTkLabel(info, text=f"Endpoint: {ROUTER_V1}", font=ctk.CTkFont(size=11), text_color="gray").pack(anchor="w")
-
-        btn_row = ctk.CTkFrame(status_card, fg_color="transparent")
-        btn_row.pack(fill="x", padx=16, pady=(0, 12))
-        self._start_btn = self._reg(ctk.CTkButton(btn_row, text=self.t("btn_start"), width=150,
-                                                  command=self._start_router), "btn_start")
-        self._start_btn.pack(side="left", padx=(0, 8))
-        self._stop_btn = self._reg(ctk.CTkButton(btn_row, text=self.t("btn_stop"), width=150,
+        self._stop_btn = self._reg(ctk.CTkButton(row, text=self.t("btn_stop"), width=140,
                                                  fg_color="#c0392b", hover_color="#922b21",
                                                  command=self._stop_router, state="disabled"), "btn_stop")
-        self._stop_btn.pack(side="left")
+        self._stop_btn.pack(side="right")
+        self._start_btn = self._reg(ctk.CTkButton(row, text=self.t("btn_start"), width=140,
+                                                  command=self._start_router), "btn_start")
+        self._start_btn.pack(side="right", padx=8)
 
-        # Default-password warning (shown only when needed)
-        self._pw_banner = ctk.CTkFrame(frame, fg_color="#5a3a00")
-        self._pw_banner_lbl = self._reg(
-            ctk.CTkLabel(self._pw_banner, text=self.t("pw_warn"), wraplength=480, justify="left",
-                         font=ctk.CTkFont(size=12)),
-            "pw_warn",
-        )
-        self._pw_banner_lbl.pack(side="left", padx=14, pady=10)
-        self._link_button(self._pw_banner, "btn_password", f"{DASH}/profile", width=170).pack(side="right", padx=12)
+        # Checklist card
+        check = ctk.CTkFrame(frame)
+        check.pack(fill="x", pady=(0, 8))
+        self._reg(ctk.CTkLabel(check, text=self.t("check_title"), font=ctk.CTkFont(size=13, weight="bold")),
+                  "check_title").pack(anchor="w", padx=16, pady=(10, 0))
+        self._check_summary = ctk.CTkLabel(check, text="", font=ctk.CTkFont(size=12, weight="bold"))
+        self._check_summary.pack(anchor="w", padx=16, pady=(0, 6))
+
+        self._steps: dict[str, tuple] = {}
+        for key, act_key, action in (
+            ("server", "act_start", self._start_router),
+            ("password", "act_password", lambda: webbrowser.open(f"{DASH}/profile")),
+            ("provider", "act_provider", lambda: webbrowser.open(f"{DASH}/providers")),
+            ("tool", "act_tool", lambda: self._show_tab("Tools")),
+            ("traffic", None, None),
+        ):
+            r = ctk.CTkFrame(check, fg_color="transparent")
+            r.pack(fill="x", padx=16, pady=2)
+            mark = ctk.CTkLabel(r, text="○", width=22, font=ctk.CTkFont(size=15, weight="bold"))
+            mark.pack(side="left")
+            lbl = ctk.CTkLabel(r, text="", anchor="w", font=ctk.CTkFont(size=12))
+            lbl.pack(side="left", padx=4)
+            btn = None
+            if act_key:
+                btn = self._reg(ctk.CTkButton(r, text=self.t(act_key), width=150, height=24,
+                                              font=ctk.CTkFont(size=11), command=action), act_key)
+            self._steps[key] = (mark, lbl, btn)
+        self._traffic_hint = self._reg(ctk.CTkLabel(check, text=self.t("step_traffic_hint"), font=ctk.CTkFont(size=10),
+                                                    text_color="gray"), "step_traffic_hint")
+        self._saver_lbl = ctk.CTkLabel(check, text="", font=ctk.CTkFont(size=11), text_color="gray",
+                                       wraplength=600, justify="left")
+        self._saver_lbl.pack(anchor="w", padx=16, pady=(6, 10))
 
         # Usage card
-        self._usage_card = ctk.CTkFrame(frame)
-        self._usage_card.pack(fill="x", pady=(0, 8))
-        hdr = ctk.CTkFrame(self._usage_card, fg_color="transparent")
+        usage = ctk.CTkFrame(frame)
+        usage.pack(fill="x", pady=(0, 8))
+        hdr = ctk.CTkFrame(usage, fg_color="transparent")
         hdr.pack(fill="x", padx=16, pady=(10, 6))
         self._reg(ctk.CTkLabel(hdr, text=self.t("savings_title"), font=ctk.CTkFont(size=13, weight="bold")),
                   "savings_title").pack(side="left")
         self._link_button(hdr, "btn_open_dash", DASH, width=130).pack(side="right")
         self._link_button(hdr, "btn_token_saver", f"{DASH}/token-saver", width=140).pack(side="right", padx=6)
 
-        stat_row = ctk.CTkFrame(self._usage_card, fg_color="transparent")
+        stat_row = ctk.CTkFrame(usage, fg_color="transparent")
         stat_row.pack(fill="x", padx=16, pady=(0, 4))
-        self._stat_tokens_lbl = ctk.CTkLabel(stat_row, text="0", font=ctk.CTkFont(size=22, weight="bold"), text_color="#2ecc71")
+        self._stat_tokens_lbl = ctk.CTkLabel(stat_row, text="0", font=ctk.CTkFont(size=22, weight="bold"), text_color="#27ae60")
         self._stat_tokens_lbl.pack(side="left", padx=(0, 2))
         self._reg(ctk.CTkLabel(stat_row, text=self.t("stat_tokens"), font=ctk.CTkFont(size=10), text_color="gray"),
                   "stat_tokens").pack(side="left", padx=(0, 20))
@@ -464,52 +617,59 @@ class App(ctk.CTk):
         self._stat_req_lbl.pack(side="left", padx=(0, 2))
         self._reg(ctk.CTkLabel(stat_row, text=self.t("stat_requests"), font=ctk.CTkFont(size=10), text_color="gray"),
                   "stat_requests").pack(side="left", padx=(0, 20))
-        self._stat_cost_lbl = ctk.CTkLabel(stat_row, text="$0.00", font=ctk.CTkFont(size=22, weight="bold"), text_color="#f39c12")
+        self._stat_cost_lbl = ctk.CTkLabel(stat_row, text="$0.00", font=ctk.CTkFont(size=22, weight="bold"), text_color="#e67e22")
         self._stat_cost_lbl.pack(side="left", padx=(0, 2))
         self._reg(ctk.CTkLabel(stat_row, text=self.t("stat_cost"), font=ctk.CTkFont(size=10), text_color="gray"),
                   "stat_cost").pack(side="left")
-        self._usage_note = ctk.CTkLabel(self._usage_card, text="", font=ctk.CTkFont(size=10), text_color="gray",
-                                        wraplength=600, justify="left")
+        self._usage_note = ctk.CTkLabel(usage, text="", font=ctk.CTkFont(size=10), text_color="gray")
         self._usage_note.pack(anchor="w", padx=16, pady=(2, 8))
 
-        # Info cards
-        info_row = ctk.CTkFrame(frame, fg_color="transparent")
-        info_row.pack(fill="x", pady=(0, 8))
-        self._make_info_card(info_row, "card_port", str(ROUTER_PORT))
-        self._tools_count_lbl = self._make_info_card(info_row, "card_tools", "—")
-        self._pw_status_lbl = self._make_info_card(info_row, "card_password", self.t("pw_unknown"))
-
-        self._reg(ctk.CTkLabel(frame, text=self.t("dash_hint"), font=ctk.CTkFont(size=11), text_color="gray",
-                               wraplength=600, justify="left"), "dash_hint").pack(anchor="w", pady=2)
-
-    def _make_info_card(self, parent, title_key: str, value: str) -> ctk.CTkLabel:
-        card = ctk.CTkFrame(parent)
-        card.pack(side="left", expand=True, fill="x", padx=(0, 8))
-        self._reg(ctk.CTkLabel(card, text=self.t(title_key), font=ctk.CTkFont(size=10), text_color="gray"),
-                  title_key).pack(anchor="w", padx=12, pady=(8, 0))
-        val_lbl = ctk.CTkLabel(card, text=value, font=ctk.CTkFont(size=12, weight="bold"))
-        val_lbl.pack(anchor="w", padx=12, pady=(0, 8))
-        return val_lbl
-
-    def _refresh_password_status(self):
-        self._pw_state = password_created()
-        if self._pw_state is None:
-            self._pw_status_lbl.configure(text=self.t("pw_unknown"), text_color=("gray10", "gray90"))
-            self._pw_banner.pack_forget()
-        elif self._pw_state:
-            self._pw_status_lbl.configure(text=self.t("pw_custom"), text_color="#2ecc71")
-            self._pw_banner.pack_forget()
+    def _refresh_snapshot_views(self):
+        s = self._snap
+        connected = sum(1 for t in (self._tools or []) if t.get("configured"))
+        done = {
+            "server": self._running,
+            "password": bool(s["password"]),
+            "provider": s["providers"] > 0,
+            "tool": connected > 0,
+            "traffic": s["requests"] > 0,
+        }
+        texts = {
+            "server": self.t("step_server"),
+            "password": self.t("step_password"),
+            "provider": self.t("step_provider", n=s["providers"]),
+            "tool": self.t("step_tool", n=connected),
+            "traffic": self.t("step_traffic"),
+        }
+        for key, (mark, lbl, btn) in self._steps.items():
+            ok = done[key]
+            mark.configure(text="✓" if ok else "○", text_color="#27ae60" if ok else "#e67e22")
+            lbl.configure(text=texts[key], text_color=("gray10", "gray90") if ok else "#e67e22")
+            if btn:
+                if ok:
+                    btn.pack_forget()
+                else:
+                    btn.pack(side="right")
+        # hint only matters when everything before step 5 is done
+        if all(done[k] for k in ("server", "provider", "tool")) and not done["traffic"]:
+            self._traffic_hint.pack(anchor="w", padx=42, before=self._saver_lbl)
         else:
-            self._pw_status_lbl.configure(text=self.t("pw_default"), text_color="#f39c12")
-            self._pw_banner.pack(fill="x", pady=(0, 8), before=self._usage_card)
+            self._traffic_hint.pack_forget()
 
-    def _refresh_usage(self):
-        totals = usage_totals()
-        reqs, tokens, cost = totals if totals else (0, 0, 0.0)
-        self._stat_tokens_lbl.configure(text=f"{int(tokens):,}".replace(",", "."))
-        self._stat_req_lbl.configure(text=str(reqs))
-        self._stat_cost_lbl.configure(text=f"${cost:.4f}")
-        self._usage_note.configure(text="" if reqs else self.t("stat_empty"))
+        missing = sum(1 for v in done.values() if not v)
+        self._check_summary.configure(
+            text=self.t("check_all_ok") if not missing else self.t("check_missing", n=missing),
+            text_color="#27ae60" if not missing else "#e67e22",
+        )
+        savers = [self.t("saver_hr_down") if m == "Headroom" and not port_open(HEADROOM_PORT) else m
+                  for m in s["savers"]]
+        self._saver_lbl.configure(text=self.t("saver_on", modes=", ".join(savers)) if savers
+                                  else self.t("saver_off"))
+
+        self._stat_tokens_lbl.configure(text=f"{int(s['tokens']):,}".replace(",", "."))
+        self._stat_req_lbl.configure(text=str(s["requests"]))
+        self._stat_cost_lbl.configure(text=f"${s['cost']:.4f}")
+        self._usage_note.configure(text="" if s["requests"] else self.t("stat_empty"))
 
     # ── Tools tab ─────────────────────────────────────────────────────────────
 
@@ -525,11 +685,10 @@ class App(ctk.CTk):
                   "btn_refresh").pack(side="right")
         self._connect_all_btn = self._reg(
             ctk.CTkButton(hdr, text=self.t("btn_connect_all"), width=130, command=lambda: self._connect("all")),
-            "btn_connect_all",
-        )
+            "btn_connect_all")
         self._connect_all_btn.pack(side="right", padx=6)
 
-        self._tools_status = ctk.CTkLabel(frame, text="", font=ctk.CTkFont(size=11), text_color="#f39c12")
+        self._tools_status = ctk.CTkLabel(frame, text="", font=ctk.CTkFont(size=11), text_color="#e67e22")
         self._tools_status.pack(anchor="w")
 
         self._reg(ctk.CTkLabel(frame, text=self.t("tools_cli"), font=ctk.CTkFont(size=13, weight="bold")),
@@ -572,31 +731,29 @@ class App(ctk.CTk):
     def _set_tools(self, tools: list[dict]):
         self._tools = tools
         self._render_tools()
+        self._refresh_snapshot_views()
 
     def _render_tools(self):
         for child in self._tools_list.winfo_children():
             child.destroy()
         if self._tools is None:
             ctk.CTkLabel(self._tools_list, text=self.t("tools_loading"), text_color="gray").pack(padx=14, pady=10, anchor="w")
-            self._tools_count_lbl.configure(text="—")
             return
         state = "disabled" if self._tools_busy else "normal"
         for tool in self._tools:
             row = ctk.CTkFrame(self._tools_list, fg_color="transparent")
             row.pack(fill="x", padx=12, pady=3)
             on = bool(tool.get("configured"))
-            ctk.CTkLabel(row, text="●", text_color="#2ecc71" if on else "gray40", width=18).pack(side="left")
+            ctk.CTkLabel(row, text="●", text_color="#27ae60" if on else "gray50", width=18).pack(side="left")
             ctk.CTkLabel(row, text=tool.get("name", tool.get("id", "?")), width=150, anchor="w",
                          font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
             status = self.t("tool_on", url=tool.get("baseUrl") or "") if on else self.t("tool_off")
             ctk.CTkLabel(row, text=status, anchor="w", text_color="gray", font=ctk.CTkFont(size=11)).pack(side="left", padx=6)
-            ctk.CTkButton(row, text=self.t("btn_remove"), width=80, height=26, fg_color="gray30", state=state,
+            ctk.CTkButton(row, text=self.t("btn_remove"), width=80, height=26, fg_color="gray50", state=state,
                           command=lambda i=tool["id"]: self._reset(i)).pack(side="right", padx=(4, 0))
             ctk.CTkButton(row, text=self.t("btn_connect"), width=90, height=26, state=state,
                           command=lambda i=tool["id"]: self._connect(i)).pack(side="right")
         self._connect_all_btn.configure(state=state)
-        connected = sum(1 for t in self._tools if t.get("configured"))
-        self._tools_count_lbl.configure(text=f"{connected} / {len(self._tools)}")
 
     def _connect(self, tool_ids: str):
         if not port_open():
@@ -637,6 +794,153 @@ class App(ctk.CTk):
         self._tools_status.configure(text=self.t("tools_done") if ok else self.t("tools_failed"))
         self._load_tools()
 
+    # ── Savers tab (Headroom + Caveman) ───────────────────────────────────────
+
+    def _build_savers(self):
+        frame = ctk.CTkScrollableFrame(self._content, fg_color="transparent")
+        self._tabs["Savers"] = frame
+
+        hdr = ctk.CTkFrame(frame, fg_color="transparent")
+        hdr.pack(fill="x", pady=(0, 4))
+        self._reg(ctk.CTkLabel(hdr, text=self.t("savers_title"), font=ctk.CTkFont(size=18, weight="bold")),
+                  "savers_title").pack(side="left")
+        self._link_button(hdr, "btn_token_saver", f"{DASH}/token-saver", width=150).pack(side="right")
+        self._reg(ctk.CTkLabel(frame, text=self.t("savers_intro"), font=ctk.CTkFont(size=11), text_color="gray",
+                               wraplength=620, justify="left"), "savers_intro").pack(anchor="w", pady=(0, 10))
+
+        def card(title_key, text_key):
+            c = ctk.CTkFrame(frame)
+            c.pack(fill="x", pady=(0, 10))
+            self._reg(ctk.CTkLabel(c, text=self.t(title_key), font=ctk.CTkFont(size=13, weight="bold")),
+                      title_key).pack(anchor="w", padx=14, pady=(10, 2))
+            self._reg(ctk.CTkLabel(c, text=self.t(text_key), font=ctk.CTkFont(size=11), text_color="gray",
+                                   wraplength=600, justify="left"), text_key).pack(anchor="w", padx=14)
+            status = ctk.CTkLabel(c, text="", font=ctk.CTkFont(size=12, weight="bold"))
+            status.pack(anchor="w", padx=14, pady=(6, 4))
+            row = ctk.CTkFrame(c, fg_color="transparent")
+            row.pack(fill="x", padx=14, pady=(0, 10))
+            return c, status, row
+
+        def button(row, key, cmd, **kw):
+            b = self._reg(ctk.CTkButton(row, text=self.t(key), width=130, height=28, command=cmd, **kw), key)
+            b.pack(side="left", padx=(0, 6))
+            return b
+
+        _, self._hr_status, row = card("hr_title", "hr_text")
+        self._hr_install_btn = button(row, "btn_install", self._install_headroom)
+        self._hr_start_btn = button(row, "btn_start_short", self._start_headroom)
+        self._hr_stop_btn = button(row, "btn_stop_short", self._stop_headroom, fg_color="#c0392b", hover_color="#922b21")
+
+        cv_card, self._cv_status, row = card("cv_title", "cv_text")
+        self._reg(ctk.CTkLabel(cv_card, text=self.t("cv_order"), font=ctk.CTkFont(size=11, weight="bold"),
+                               text_color="#e67e22", wraplength=600, justify="left"),
+                  "cv_order").pack(anchor="w", padx=14, pady=(0, 4), before=row)
+        self._reg(ctk.CTkLabel(cv_card, text=self.t("cv_telemetry"), font=ctk.CTkFont(size=10), text_color="gray",
+                               wraplength=600, justify="left"), "cv_telemetry").pack(anchor="w", padx=14, pady=(0, 6), before=row)
+        self._cv_install_btn = button(row, "btn_install", lambda: self._open_terminal("Caveman", CAVEMAN_INSTALL))
+        button(row, "btn_cv_status", lambda: self._open_terminal("Caveman", "caveman status"))
+        button(row, "btn_cv_telemetry", lambda: self._open_terminal("Caveman", "caveman telemetry off"))
+        button(row, "btn_uninstall", lambda: self._open_terminal("Caveman", CAVEMAN_UNINSTALL), fg_color="gray50")
+
+    def _refresh_savers(self):
+        if self._hr_installing:
+            text, color = self.t("hr_installing"), "#e67e22"
+        elif port_open(HEADROOM_PORT):
+            text, color = self.t("hr_running"), "#27ae60"
+        elif HEADROOM_EXE.exists():
+            text, color = self.t("hr_stopped"), "#e67e22"
+        else:
+            text, color = self.t("hr_missing"), "gray50"
+        self._hr_status.configure(text=text, text_color=color)
+        installed = HEADROOM_EXE.exists()
+        running = port_open(HEADROOM_PORT)
+        self._hr_install_btn.configure(state="disabled" if installed or self._hr_installing else "normal")
+        self._hr_start_btn.configure(state="normal" if installed and not running else "disabled")
+        self._hr_stop_btn.configure(state="normal" if running else "disabled")
+
+        if self._cv_version:
+            self._cv_status.configure(text=self.t("cv_installed", v=self._cv_version), text_color="#27ae60")
+        else:
+            self._cv_status.configure(text=self.t("cv_missing"), text_color="gray50")
+
+    def _check_caveman(self):
+        def work():
+            r = subprocess.run("caveman --version", shell=True, capture_output=True, text=True,
+                               stdin=subprocess.DEVNULL, creationflags=NO_WINDOW, encoding="utf-8", errors="replace")
+            version = (r.stdout.strip().splitlines() or [""])[-1] if r.returncode == 0 else None
+            self.after(0, self._set_caveman_version, version)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _set_caveman_version(self, version: str | None):
+        self._cv_version = version
+        self._refresh_savers()
+
+    def _open_terminal(self, title: str, command: str):
+        # Interactive installers need a real console the user can read and answer
+        self._log(f"[{title}] {command}")
+        subprocess.Popen(f'start "{title}" cmd /k "{command}"', shell=True, creationflags=NO_WINDOW)
+
+    def _install_headroom(self):
+        self._hr_installing = True
+        self._refresh_savers()
+        self._show_tab("Logs")
+
+        def work():
+            base_python = "py -3" if getattr(sys, "frozen", False) else f'"{Path(sys.executable).with_name("python.exe")}"'
+            vpy = f'"{HEADROOM_VENV / "Scripts" / "python.exe"}"'
+            ok = True
+            for cmd in (f'{base_python} -m venv "{HEADROOM_VENV}"',
+                        f"{vpy} -m pip install --disable-pip-version-check --upgrade pip",
+                        f'{vpy} -m pip install --disable-pip-version-check "headroom-ai[proxy]"'):
+                self._log(f"[headroom] {cmd}")
+                proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                        bufsize=1, encoding="utf-8", errors="replace", creationflags=NO_WINDOW)
+                for line in proc.stdout:
+                    if line.strip() and not line.startswith("  "):
+                        self._log(f"[headroom] {line.rstrip()}")
+                if proc.wait() != 0:
+                    ok = False
+                    break
+            self._log("[headroom] OK" if ok else "[headroom] FAILED")
+            self.after(0, self._headroom_install_done, ok)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _headroom_install_done(self, ok: bool):
+        self._hr_installing = False
+        if ok and self._running:
+            self._start_headroom()
+        self._refresh_savers()
+
+    def _start_headroom(self):
+        if not HEADROOM_EXE.exists() or port_open(HEADROOM_PORT):
+            return
+        self._log(f"[headroom] {HEADROOM_CMD}")
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "utf-8"
+        env.setdefault("HEADROOM_BEACON", "off")   # Headroom uploads session summaries unless opted out
+        self._hr_proc = subprocess.Popen(HEADROOM_CMD, shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                         stderr=subprocess.STDOUT, text=True, bufsize=1, encoding="utf-8",
+                                         errors="replace", env=env, creationflags=NO_WINDOW)
+        proc = self._hr_proc
+
+        def stream():
+            for line in proc.stdout:
+                if line.strip():
+                    self._log(f"[headroom] {line.rstrip()}")
+
+        threading.Thread(target=stream, daemon=True).start()
+        self.after(3000, self._refresh_savers)
+
+    def _stop_headroom(self):
+        if self._hr_proc:
+            kill_tree(self._hr_proc.pid)
+            self._hr_proc = None
+        for pid in pids_listening_on(HEADROOM_PORT):
+            kill_tree(pid)
+        self._refresh_savers()
+
     # ── Logs tab ──────────────────────────────────────────────────────────────
 
     def _build_logs(self):
@@ -665,6 +969,44 @@ class App(ctk.CTk):
         self._log_box.configure(state="normal")
         self._log_box.delete("1.0", "end")
         self._log_box.configure(state="disabled")
+
+    # ── Tray / background ─────────────────────────────────────────────────────
+
+    def _start_tray(self):
+        if not pystray:
+            return
+        image = Image.open(ICON_PNG) if ICON_PNG.exists() else Image.new("RGB", (64, 64), (217, 119, 87))
+        menu = pystray.Menu(
+            pystray.MenuItem(lambda _i: self.t("tray_open"), lambda: self.after(0, self.show_window), default=True),
+            pystray.MenuItem(lambda _i: self.t("tray_quit"), lambda: self.after(0, self.quit_app)),
+        )
+        self._tray = pystray.Icon("9router-manager", image, "9Router Manager", menu)
+        threading.Thread(target=self._tray.run, daemon=True).start()
+
+    def hide_to_tray(self):
+        if not self._tray:
+            self.quit_app()
+            return
+        self.withdraw()
+        if not self._tray_notified:
+            self._tray_notified = True
+            try:
+                self._tray.notify(self.t("tray_notice"), "9Router Manager")
+            except Exception:
+                pass
+
+    def show_window(self):
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+
+    def quit_app(self):
+        self._password = None
+        self._stop_router()
+        self._stop_headroom()
+        if self._tray:
+            self._tray.stop()
+        self.destroy()
 
     # ── Process management ────────────────────────────────────────────────────
 
@@ -717,15 +1059,27 @@ class App(ctk.CTk):
         if running == self._running:
             return
         self._running = running
+        if running:
+            self._start_headroom()   # no-op if not installed or already up
         self._refresh_status()
+        self._refresh_snapshot_views()
 
     def _watch_port(self):
         self._set_running(port_open())
         self.after(2000, self._watch_port)
 
     def _periodic(self):
-        self._refresh_usage()
-        self.after(10000, self._periodic)
+        def work():
+            snap = router_snapshot()
+            self.after(0, self._apply_snapshot, snap)
+
+        threading.Thread(target=work, daemon=True).start()
+        self.after(5000, self._periodic)
+
+    def _apply_snapshot(self, snap: dict):
+        self._snap = snap
+        self._refresh_snapshot_views()
+        self._refresh_savers()
 
     def _stop_router(self):
         self._log(self.t("log_stopping"))
@@ -748,7 +1102,7 @@ class App(ctk.CTk):
 
     def _refresh_status(self):
         if self._running:
-            self._status_dot.configure(text_color="#2ecc71")
+            self._status_dot.configure(text_color="#27ae60")
             self._status_label.configure(text=self.t("status_running"))
             self._start_btn.configure(state="disabled")
             self._stop_btn.configure(state="normal")
@@ -758,11 +1112,6 @@ class App(ctk.CTk):
             self._status_label.configure(text=self.t("status_stopped"))
             self._start_btn.configure(state="normal")
             self._stop_btn.configure(state="disabled")
-
-    def on_close(self):
-        self._password = None
-        self._stop_router()
-        self.destroy()
 
 
 if __name__ == "__main__":

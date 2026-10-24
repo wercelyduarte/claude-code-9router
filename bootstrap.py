@@ -22,6 +22,8 @@ REQUIREMENTS = os.path.join(BASE_DIR, "requirements.txt")
 
 DEPENDENCIAS_PY = [
     ("customtkinter", "customtkinter"),
+    ("pystray", "pystray"),
+    ("PIL", "Pillow"),
 ]
 
 
@@ -168,6 +170,12 @@ def main():
 
     print()
     print("[bootstrap] Ambiente OK. Abrindo o app...")
+    # pythonw has no console, so this black window can close and the app lives on in the tray
+    pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+    if os.path.exists(pythonw):
+        subprocess.Popen([pythonw, os.path.join(BASE_DIR, "app.py")], cwd=BASE_DIR,
+                         creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+        return
     import app as router_app
     router_app.App().mainloop()
 

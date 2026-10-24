@@ -12,6 +12,7 @@ import re
 import winreg
 import time
 import webbrowser
+import socket
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -22,6 +23,8 @@ ROUTER_ENDPOINT = f"http://localhost:{ROUTER_PORT}"
 ROUTER_V1       = f"{ROUTER_ENDPOINT}/v1"
 CLAUDE_SETTINGS = Path.home() / ".claude" / "settings.json"
 ENV_KEY         = "ANTHROPIC_BASE_URL"
+# --log skips the interactive menu (which exits without a keyboard); 127.0.0.1 keeps it off the LAN
+ROUTER_CMD      = f"9router --host 127.0.0.1 --port {ROUTER_PORT} --no-browser --log --skip-update"
 STATS_ENDPOINTS = [
     f"{ROUTER_ENDPOINT}/api/stats",
     f"{ROUTER_ENDPOINT}/api/usage",
@@ -150,6 +153,30 @@ def set_user_env(name: str, value: str):
     ctypes.windll.user32.SendMessageTimeoutW(0xFFFF, 0x001A, 0, "Environment", 0x0002, 5000, None)
 
 
+def port_open(port: int = ROUTER_PORT) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+def pids_listening_on(port: int = ROUTER_PORT) -> set[int]:
+    out = subprocess.run("netstat -ano -p TCP", shell=True, capture_output=True, text=True,
+                         creationflags=subprocess.CREATE_NO_WINDOW).stdout
+    pids = set()
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) >= 5 and parts[1].endswith(f":{port}") and parts[3].upper() in ("LISTENING", "ESCUTANDO"):
+            pids.add(int(parts[4]))
+    return pids
+
+
+def kill_tree(pid: int):
+    subprocess.run(f"taskkill /PID {pid} /T /F", shell=True, capture_output=True,
+                   creationflags=subprocess.CREATE_NO_WINDOW)
+
+
 def delete_user_env(name: str):
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_SET_VALUE)
@@ -181,6 +208,7 @@ class App(ctk.CTk):
 
         self._build_ui()
         self._refresh_status()
+        self.after(1000, self._watch_port)
 
     # ── Translation ───────────────────────────────────────────────────────────
 
@@ -473,6 +501,9 @@ class App(ctk.CTk):
         self._log_box.pack(fill="both", expand=True)
 
     def _log(self, text: str):
+        if threading.current_thread() is not threading.main_thread():
+            self.after(0, self._log, text)  # Tk widgets are only safe on the main thread
+            return
         ts = time.strftime("%H:%M:%S")
         self._log_box.configure(state="normal")
         self._log_box.insert("end", f"[{ts}] {text}\n")
@@ -513,13 +544,15 @@ class App(ctk.CTk):
             return False
 
     def _start_router(self):
-        if self._running:
+        if self._running or port_open():
+            self._set_running(True)
             return
         self._log(self.t("log_starting"))
         try:
             self._process = subprocess.Popen(
-                "9router",
+                ROUTER_CMD,
                 shell=True,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -534,23 +567,33 @@ class App(ctk.CTk):
             install_thread.start()
             return
 
-        self._running = True
         self._stats = {"tokens": 0, "requests": 0, "cost": 0.0}
-        self._refresh_status()
-
         self._log_thread = threading.Thread(target=self._stream_logs, daemon=True)
         self._log_thread.start()
+        # _watch_port flips the status to Running once the server actually answers
 
-        self._stats_thread = threading.Thread(target=self._poll_stats, daemon=True)
-        self._stats_thread.start()
+    def _set_running(self, running: bool):
+        if running == self._running:
+            return
+        self._running = running
+        if running and not (self._stats_thread and self._stats_thread.is_alive()):
+            self._stats_thread = threading.Thread(target=self._poll_stats, daemon=True)
+            self._stats_thread.start()
+        self._refresh_status()
+
+    def _watch_port(self):
+        self._set_running(port_open())
+        self.after(2000, self._watch_port)
 
     def _stop_router(self):
+        self._log(self.t("log_stopping"))
         if self._process:
-            self._log(self.t("log_stopping"))
-            self._process.terminate()
+            kill_tree(self._process.pid)
             self._process = None
-        self._running = False
-        self._refresh_status()
+        # The server may have detached to the tray, so also kill whoever owns the port
+        for pid in pids_listening_on():
+            kill_tree(pid)
+        self._set_running(port_open())
 
     def _install_and_retry(self):
         """Run in a thread: install 9router then start it."""
@@ -568,8 +611,6 @@ class App(ctk.CTk):
                 self._parse_log_for_stats(line)
         except Exception:
             pass
-        self._running = False
-        self.after(0, self._refresh_status)
         self._log(self.t("log_ended"))
 
     def _parse_log_for_stats(self, line: str):

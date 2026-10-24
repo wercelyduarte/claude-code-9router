@@ -28,6 +28,8 @@ build_exe_options = {
         "ctypes",
         "sqlite3",
         "pystray",
+        "six",
+        "queue",  # pystray imports its backend dynamically; without these the .exe has no tray
         "PIL",
     ],
     "excludes": [

@@ -19,8 +19,10 @@ from pathlib import Path
 try:
     import pystray
     from PIL import Image
-except ImportError:  # without them the X button simply quits
+    TRAY_IMPORT_ERROR = None
+except ImportError as e:  # without them the X button simply quits
     pystray = None
+    TRAY_IMPORT_ERROR = e
 
 # ─────────────────────────────────────────
 ROUTER_PORT     = 20128
@@ -277,6 +279,28 @@ TEXTS: dict[str, dict[str, str]] = {
 }
 
 
+# ── Error log (the .exe and pythonw have no console, so errors would vanish) ──
+
+ERROR_LOG = CONFIG_FILE.parent / "app.log"
+
+
+def log_error(exc_info=None):
+    import traceback
+    try:
+        ERROR_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with ERROR_LOG.open("a", encoding="utf-8") as f:
+            f.write(f"--- {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("".join(traceback.format_exception(*(exc_info or sys.exc_info()))))
+    except OSError:
+        pass
+
+
+sys.excepthook = lambda *exc: log_error(exc)
+threading.excepthook = lambda a: log_error((a.exc_type, a.exc_value, a.exc_traceback))
+if TRAY_IMPORT_ERROR:
+    log_error((type(TRAY_IMPORT_ERROR), TRAY_IMPORT_ERROR, TRAY_IMPORT_ERROR.__traceback__))
+
+
 # ── Preferences ───────────────────────────────────────────────────────────────
 
 def load_config() -> dict:
@@ -326,8 +350,9 @@ def port_open(port: int = ROUTER_PORT) -> bool:
 
 
 def pids_listening_on(port: int = ROUTER_PORT) -> set[int]:
+    # netstat prints in the console code page (accents in pt-BR); the frozen .exe defaults to UTF-8
     out = subprocess.run("netstat -ano -p TCP", shell=True, capture_output=True, text=True,
-                         creationflags=NO_WINDOW).stdout
+                         encoding="oem", errors="replace", creationflags=NO_WINDOW).stdout or ""
     pids = set()
     for line in out.splitlines():
         parts = line.split()
@@ -477,6 +502,9 @@ class App(ctk.CTk):
         self.after(0, self._start_tray)
         self.after(1000, self._watch_port)
         self.after(5000, self._periodic)
+
+    def report_callback_exception(self, *exc):
+        log_error(exc)
 
     # ── Translation / theme ───────────────────────────────────────────────────
 
@@ -1101,11 +1129,15 @@ class App(ctk.CTk):
 
     def quit_app(self):
         self._password = None
-        self._stop_router()
-        self._stop_headroom()
-        if self._tray:
-            self._tray.stop()
-        self.destroy()
+        try:
+            self._stop_router()
+            self._stop_headroom()
+            if self._tray:
+                self._tray.stop()
+        except Exception:
+            log_error()
+        finally:
+            self.destroy()   # always close, even if stopping a server failed
 
     # ── Process management ────────────────────────────────────────────────────
 

@@ -43,13 +43,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM -- 9router (usa --version pois 'where' nao acha .cmd no PATH do npm) --
-9router --version >nul 2>nul
+REM -- 9router --
+REM 'call' e obrigatorio: 9router.cmd e npm.cmd encerram o batch chamador sem ele
+call 9router --version >nul 2>nul
 if errorlevel 1 (
   echo.
   echo [rodar] 9router NAO esta instalado. Instalando agora via npm...
   echo.
-  npm install -g --allow-scripts=9router 9router
+  call npm install -g --allow-scripts=9router 9router
   if errorlevel 1 (
     echo.
     echo [rodar] Falha ao instalar 9router. Verifique a conexao e tente novamente.
@@ -57,7 +58,7 @@ if errorlevel 1 (
     exit /b 1
   )
   REM Confirma que o executavel foi criado
-  9router --version >nul 2>nul
+  call 9router --version >nul 2>nul
   if errorlevel 1 (
     echo.
     echo [rodar] Instalacao concluida mas comando ainda nao encontrado.
@@ -78,5 +79,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+REM Mantem a janela aberta se o app fechar com erro inesperado
+if not "%ERRORLEVEL%"=="0" pause
 
 endlocal

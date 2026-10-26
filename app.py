@@ -138,7 +138,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "tools_need_server": "Inicie o 9Router primeiro (aba Painel).",
         "tools_busy":      "Executando…",
         "tools_done":      "Concluído. Detalhes na aba Logs.",
-        "tools_failed":    "Falhou. Detalhes na aba Logs.",
+        "tools_failed":    "Falhou:",
         "tools_dash_title":"Pelo dashboard do 9Router",
         "kiro_prov_title": "Kiro AI — provedor gratuito",
         "kiro_prov_text":  "Use os modelos do Kiro em todas as ferramentas acima: Providers → Connect Kiro AI → faça login com sua conta Kiro.",
@@ -250,7 +250,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "tools_need_server": "Start 9Router first (Dashboard tab).",
         "tools_busy":      "Working…",
         "tools_done":      "Done. Details in the Logs tab.",
-        "tools_failed":    "Failed. Details in the Logs tab.",
+        "tools_failed":    "Failed:",
         "tools_dash_title":"Through the 9Router dashboard",
         "kiro_prov_title": "Kiro AI — free provider",
         "kiro_prov_text":  "Use Kiro's models in all the tools above: Providers → Connect Kiro AI → sign in with your Kiro account.",
@@ -891,18 +891,25 @@ class App(ctk.CTk):
             proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env,
                                   stdin=subprocess.DEVNULL, creationflags=NO_WINDOW, encoding="utf-8", errors="replace")
             output = (proc.stdout or "") + (proc.stderr or "")
-            for line in output.splitlines():
-                if line.strip():
-                    self._log(f"[tools] {line.rstrip()}")
-            self.after(0, self._tool_cmd_done, proc.returncode == 0, is_login and "Login failed" in output)
+            lines = [line.strip() for line in output.splitlines() if line.strip()]
+            for line in lines:
+                self._log(f"[tools] {line}")
+            # 9router marks its errors with ❌, e.g. "Login failed (401): Invalid password. 2 attempt(s) left"
+            reason = next((line.lstrip("❌ ").strip() for line in lines if line.startswith("❌")),
+                          lines[-1] if lines else "")
+            self.after(0, self._tool_cmd_done, proc.returncode == 0, is_login and "Login failed" in output, reason)
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _tool_cmd_done(self, ok: bool, bad_password: bool):
+    def _tool_cmd_done(self, ok: bool, bad_password: bool, reason: str):
         if bad_password:
             self._password = None   # ask again next time
         self._tools_busy = False
-        self._tools_status.configure(text=self.t("tools_done") if ok else self.t("tools_failed"))
+        if ok:
+            text = self.t("tools_done")
+        else:
+            text = f"{self.t('tools_failed')} {reason}".strip()
+        self._tools_status.configure(text=text, wraplength=600, justify="left")
         self._load_tools()
 
     # ── Savers tab (Headroom + Caveman) ───────────────────────────────────────

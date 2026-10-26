@@ -14,6 +14,11 @@ import winreg
 import time
 import webbrowser
 import socket
+import urllib.request
+import urllib.error
+import urllib.parse
+import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -57,7 +62,23 @@ TEXTS: dict[str, dict[str, str]] = {
         "nav_dashboard":   "Painel",
         "nav_tools":       "Ferramentas",
         "nav_savers":      "Economia",
+        "nav_accounts":    "Contas",
         "nav_logs":        "Logs",
+        # Accounts tab
+        "accounts_title":  "Contas & Cotas",
+        "accounts_empty":  "Nenhuma conta encontrada.",
+        "accounts_hint":   "Inicie o 9Router no Painel e clique em Atualizar.",
+        "accounts_offline":"O 9Router não está rodando.",
+        "accounts_error":  "Não foi possível ler as cotas desta conta agora.",
+        "accounts_no_quota":"Este provedor não informa cotas.",
+        "accounts_unlimited":"Ilimitado",
+        "accounts_left":   "restante",
+        "accounts_reset":  "renova em",
+        "accounts_loading":"Carregando cotas…",
+        "accounts_open_dash": "Abrir Dashboard",
+        "accounts_session":"sessão",
+        "accounts_weekly": "semanal",
+        "accounts_credit": "crédito",
         # Savers
         "savers_title":    "Economia de tokens",
         "savers_intro":    "Extras que reduzem os tokens enviados e recebidos. O 9Router já tem os modos Caveman e Headroom; o Headroom precisa do programa abaixo rodando para funcionar.",
@@ -169,7 +190,23 @@ TEXTS: dict[str, dict[str, str]] = {
         "nav_dashboard":   "Dashboard",
         "nav_tools":       "Tools",
         "nav_savers":      "Savers",
+        "nav_accounts":    "Accounts",
         "nav_logs":        "Logs",
+        # Accounts tab
+        "accounts_title":  "Accounts & Quotas",
+        "accounts_empty":  "No accounts found.",
+        "accounts_hint":   "Start 9Router on the Dashboard and click Refresh.",
+        "accounts_offline":"9Router is not running.",
+        "accounts_error":  "Could not read this account's quotas right now.",
+        "accounts_no_quota":"This provider does not report quotas.",
+        "accounts_unlimited":"Unlimited",
+        "accounts_left":   "left",
+        "accounts_reset":  "resets in",
+        "accounts_loading":"Loading quotas…",
+        "accounts_open_dash": "Open Dashboard",
+        "accounts_session":"session",
+        "accounts_weekly": "weekly",
+        "accounts_credit": "credit",
         # Savers
         "savers_title":    "Token savers",
         "savers_intro":    "Extras that cut the tokens sent and received. 9Router already has Caveman and Headroom modes; Headroom needs the program below running to work.",
@@ -422,6 +459,63 @@ def caveman_stats() -> dict | None:
         return None
 
 
+def _cli_token() -> str:
+    """The same local token 9router's own CLI sends (x-9r-cli-token): built from files only this
+    Windows user can read, so no dashboard password is needed and no failed logins are counted."""
+    data = ROUTER_DB.parent.parent
+    try:
+        raw = (data / "machine-id").read_text(encoding="utf-8").strip()
+        secret = (data / "auth" / "cli-secret").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+    return hashlib.sha256((raw + "9r-cli-auth" + secret).encode()).hexdigest()[:16] if raw else ""
+
+
+def _router_get(path: str, token: str, timeout: float = 15):
+    req = urllib.request.Request(ROUTER_ENDPOINT + path, headers={"x-9r-cli-token": token})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read())
+
+
+def list_accounts() -> list[dict] | None:
+    """Live quotas per connected account, as 9router's dashboard shows them. None = 9router
+    unreachable. Only display fields are copied: connections also carry OAuth secrets."""
+    token = _cli_token()
+    try:
+        conns = _router_get("/api/providers", token, timeout=5).get("connections", [])
+    except (urllib.error.URLError, OSError, ValueError, AttributeError):
+        return None
+    accounts = []
+    for c in conns:
+        if not c.get("isActive", True):
+            continue
+        acc = {"provider": c.get("provider", "?"), "name": c.get("email") or c.get("name") or "",
+               "plan": "", "quotas": [], "error": False}
+        try:
+            usage = _router_get(f"/api/usage/{urllib.parse.quote(str(c.get('id', '')))}", token)
+            acc["plan"] = usage.get("plan") or ""
+            for qname, q in (usage.get("quotas") or {}).items():
+                if isinstance(q, dict):
+                    acc["quotas"].append({"name": qname, **{k: q.get(k) for k in
+                                          ("used", "total", "remaining", "resetAt", "unlimited")}})
+        except (urllib.error.URLError, OSError, ValueError, AttributeError):
+            acc["error"] = True
+        accounts.append(acc)
+    return accounts
+
+
+def _time_until(iso: str | None) -> str:
+    """'2026-10-27T01:00:00.497Z' -> '3h 12m' (empty if missing or already past)."""
+    try:
+        secs = int((datetime.fromisoformat(iso.replace("Z", "+00:00")) - datetime.now(timezone.utc)).total_seconds())
+    except (AttributeError, ValueError):
+        return ""
+    if secs <= 0:
+        return ""
+    d, h, m = secs // 86400, secs % 86400 // 3600, secs % 3600 // 60
+    return " ".join(([f"{d}d"] if d else []) + ([f"{h}h"] if h else []) + ([f"{m}m"] if not d else []))
+
+
 # ── Password dialog ───────────────────────────────────────────────────────────
 
 class PasswordDialog(ctk.CTkToplevel):
@@ -489,6 +583,8 @@ class App(ctk.CTk):
         self._cv_version: str | None = None
         self._cv_stats: dict | None = None
         self._ticks = 0
+        self._accounts_loading = False
+        self._accounts_data: list[dict] | None = None   # last result, re-rendered on language change
 
         self._build_ui()
         self._apply_lang_buttons()
@@ -529,6 +625,8 @@ class App(ctk.CTk):
         self._refresh_snapshot_views()
         self._render_tools()
         self._refresh_savers()
+        if self._accounts_data is not None:
+            self._render_accounts(self._accounts_data)
         if self._tray:
             self._tray.update_menu()
 
@@ -557,7 +655,7 @@ class App(ctk.CTk):
                   "app_subtitle").pack(pady=(0, 20))
 
         self._nav_btns: dict[str, ctk.CTkButton] = {}
-        for tab_key in ("Dashboard", "Tools", "Savers", "Logs"):
+        for tab_key in ("Dashboard", "Tools", "Savers", "Accounts", "Logs"):
             btn = ctk.CTkButton(sidebar, text=self.t(f"nav_{tab_key.lower()}"), width=160, anchor="w",
                                 fg_color="transparent", hover_color=HOVER, text_color=("gray10", "gray90"),
                                 command=lambda k=tab_key: self._show_tab(k))
@@ -593,6 +691,7 @@ class App(ctk.CTk):
         self._build_dashboard()
         self._build_tools()
         self._build_savers()
+        self._build_accounts()
         self._build_logs()
         self._show_tab("Dashboard")
 
@@ -603,6 +702,8 @@ class App(ctk.CTk):
             self._nav_btns[n].configure(fg_color="transparent")
         self._tabs[name].pack(fill="both", expand=True)
         self._nav_btns[name].configure(fg_color=SELECTED)
+        if name == "Accounts":
+            self.after(100, self._load_accounts)
 
     def _link_button(self, parent, key: str, url: str, width=150):
         return self._reg(ctk.CTkButton(parent, text=self.t(key), width=width, height=26, font=ctk.CTkFont(size=11),
@@ -860,9 +961,11 @@ class App(ctk.CTk):
             else:
                 status = self.t("tool_off")
             ctk.CTkLabel(row, text=status, anchor="w", text_color="gray", font=ctk.CTkFont(size=11)).pack(side="left", padx=6)
-            ctk.CTkButton(row, text=self.t("btn_remove"), width=80, height=26, fg_color="gray50", state=state,
+            remove_state = "disabled" if self._tools_busy or route == "off" else "normal"
+            connect_state = "disabled" if self._tools_busy or route == "router" else "normal"
+            ctk.CTkButton(row, text=self.t("btn_remove"), width=80, height=26, fg_color="gray50", state=remove_state,
                           command=lambda i=tool["id"]: self._reset(i)).pack(side="right", padx=(4, 0))
-            ctk.CTkButton(row, text=self.t("btn_connect"), width=90, height=26, state=state,
+            ctk.CTkButton(row, text=self.t("btn_connect"), width=90, height=26, state=connect_state,
                           command=lambda i=tool["id"]: self._connect(i)).pack(side="right")
         self._connect_all_btn.configure(state=state)
 
@@ -1074,6 +1177,125 @@ class App(ctk.CTk):
         for pid in pids_listening_on(HEADROOM_PORT):
             kill_tree(pid)
         self._refresh_savers()
+
+    # ── Accounts / Quotas tab ────────────────────────────────────────────────
+
+    def _build_accounts(self):
+        frame = ctk.CTkScrollableFrame(self._content, fg_color="transparent")
+        self._tabs["Accounts"] = frame
+
+        hdr = ctk.CTkFrame(frame, fg_color="transparent")
+        hdr.pack(fill="x", pady=(0, 10))
+        self._reg(ctk.CTkLabel(hdr, text=self.t("accounts_title"),
+                               font=ctk.CTkFont(size=18, weight="bold")), "accounts_title").pack(side="left")
+        btn_row = ctk.CTkFrame(hdr, fg_color="transparent")
+        btn_row.pack(side="right")
+        self._reg(ctk.CTkButton(btn_row, text=self.t("btn_refresh"), width=80, height=26,
+                                font=ctk.CTkFont(size=11), command=self._load_accounts),
+                  "btn_refresh").pack(side="left", padx=4)
+        self._link_button(btn_row, "accounts_open_dash", DASH, width=140).pack(side="left")
+
+        self._accounts_body = ctk.CTkFrame(frame, fg_color="transparent")
+        self._accounts_body.pack(fill="both", expand=True)
+
+    def _load_accounts(self):
+        if self._accounts_loading:
+            return
+        self._accounts_loading = True
+        self._render_accounts(None)  # loading state
+
+        def work():
+            data = list_accounts()
+            self.after(0, self._finish_accounts, data)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _finish_accounts(self, data: list[dict] | None):
+        self._accounts_loading = False
+        self._accounts_data = data
+        self._render_accounts(data, offline=data is None)
+
+    def _render_accounts(self, accounts: list[dict] | None, offline: bool = False):
+        for w in self._accounts_body.winfo_children():
+            w.destroy()
+
+        if accounts is None and not offline:
+            ctk.CTkLabel(self._accounts_body, text=self.t("accounts_loading"),
+                         text_color="gray").pack(anchor="w", pady=20)
+            return
+
+        if not accounts:
+            ctk.CTkLabel(self._accounts_body, text=self.t("accounts_offline" if offline else "accounts_empty"),
+                         text_color="gray", font=ctk.CTkFont(size=13)).pack(anchor="w", pady=(20, 6))
+            ctk.CTkLabel(self._accounts_body, text=self.t("accounts_hint"),
+                         text_color="gray", font=ctk.CTkFont(size=11)).pack(anchor="w")
+            return
+
+        for account in accounts:
+            self._render_account_card(account)
+
+    def _render_account_card(self, account: dict):
+        card = ctk.CTkFrame(self._accounts_body)
+        card.pack(fill="x", pady=(0, 10))
+
+        hdr = ctk.CTkFrame(card, fg_color="transparent")
+        hdr.pack(fill="x", padx=14, pady=(10, 6))
+        ctk.CTkLabel(hdr, text="●", text_color="#e74c3c" if account["error"] else "#2ecc71",
+                     font=ctk.CTkFont(size=16)).pack(side="left")
+        ctk.CTkLabel(hdr, text=f"{account['provider'].capitalize()}  {account['name']}".strip(),
+                     font=ctk.CTkFont(size=13, weight="bold")).pack(side="left", padx=8)
+        if account["plan"]:
+            ctk.CTkLabel(hdr, text=account["plan"], font=ctk.CTkFont(size=11),
+                         text_color="gray").pack(side="right")
+
+        if account["error"]:
+            message = self.t("accounts_error")
+        elif not account["quotas"]:
+            message = self.t("accounts_no_quota")
+        else:
+            message = None
+        if message:
+            ctk.CTkLabel(card, text=message, font=ctk.CTkFont(size=11),
+                         text_color="gray").pack(anchor="w", padx=14, pady=(0, 10))
+            return
+        for q in account["quotas"]:
+            self._render_quota_row(card, q)
+        ctk.CTkFrame(card, height=6, fg_color="transparent").pack()
+
+    def _quota_label(self, name: str) -> str:
+        # 9router names quotas like "session (5h)", "weekly (7d)" or "credit"
+        for key in ("session", "weekly", "credit"):
+            if name.lower().startswith(key):
+                return self.t(f"accounts_{key}") + name[len(key):]
+        return name
+
+    def _render_quota_row(self, parent, quota: dict):
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(fill="x", padx=14, pady=3)
+        ctk.CTkLabel(row, text=self._quota_label(quota["name"]), width=130, anchor="w",
+                     font=ctk.CTkFont(size=11)).pack(side="left")
+
+        if quota.get("unlimited"):
+            ctk.CTkLabel(row, text=self.t("accounts_unlimited"), font=ctk.CTkFont(size=11),
+                         text_color="gray").pack(side="left", padx=8)
+            return
+
+        total = quota.get("total") or 0
+        remaining = quota.get("remaining")
+        if remaining is None:
+            remaining = total - (quota.get("used") or 0)
+        ratio = max(0.0, min(1.0, remaining / total)) if total else 0.0
+        color = "#2ecc71" if ratio > 0.5 else ("#f39c12" if ratio > 0.2 else "#e74c3c")
+
+        bar = ctk.CTkProgressBar(row, width=180, height=12, corner_radius=4, progress_color=color)
+        bar.set(ratio)
+        bar.pack(side="left", padx=(8, 6))
+
+        stats = f"{self.t('accounts_left')}: {remaining}/{total}   {round(ratio * 100)}%"
+        left = _time_until(quota.get("resetAt"))
+        if left:
+            stats += f"   {self.t('accounts_reset')} {left}"
+        ctk.CTkLabel(row, text=stats, font=ctk.CTkFont(size=11), text_color="gray").pack(side="left")
 
     # ── Logs tab ──────────────────────────────────────────────────────────────
 

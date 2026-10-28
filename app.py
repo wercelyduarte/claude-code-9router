@@ -62,10 +62,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "nav_dashboard":   "Painel",
         "nav_tools":       "Ferramentas",
         "nav_savers":      "Economia",
-        "nav_accounts":    "Contas",
+        "nav_accounts":    "Consumo",
         "nav_logs":        "Logs",
         # Accounts tab
-        "accounts_title":  "Contas & Cotas",
+        "accounts_title":  "Consumo de tokens & limites",
+        "accounts_updated":"Atualizado às {time} · atualiza a cada 1 min",
         "accounts_empty":  "Nenhuma conta encontrada.",
         "accounts_hint":   "Inicie o 9Router no Painel e clique em Atualizar.",
         "accounts_offline":"O 9Router não está rodando.",
@@ -190,10 +191,11 @@ TEXTS: dict[str, dict[str, str]] = {
         "nav_dashboard":   "Dashboard",
         "nav_tools":       "Tools",
         "nav_savers":      "Savers",
-        "nav_accounts":    "Accounts",
+        "nav_accounts":    "Usage",
         "nav_logs":        "Logs",
         # Accounts tab
-        "accounts_title":  "Accounts & Quotas",
+        "accounts_title":  "Token usage & limits",
+        "accounts_updated":"Updated at {time} · refreshes every 1 min",
         "accounts_empty":  "No accounts found.",
         "accounts_hint":   "Start 9Router on the Dashboard and click Refresh.",
         "accounts_offline":"9Router is not running.",
@@ -585,6 +587,7 @@ class App(ctk.CTk):
         self._ticks = 0
         self._accounts_loading = False
         self._accounts_data: list[dict] | None = None   # last result, re-rendered on language change
+        self._accounts_time = ""
 
         self._build_ui()
         self._apply_lang_buttons()
@@ -1198,11 +1201,12 @@ class App(ctk.CTk):
         self._accounts_body = ctk.CTkFrame(frame, fg_color="transparent")
         self._accounts_body.pack(fill="both", expand=True)
 
-    def _load_accounts(self):
+    def _load_accounts(self, quiet: bool = False):
         if self._accounts_loading:
             return
         self._accounts_loading = True
-        self._render_accounts(None)  # loading state
+        if not (quiet and self._accounts_data):
+            self._render_accounts(None)  # loading state; auto-refresh keeps the old cards until new data arrives
 
         def work():
             data = list_accounts()
@@ -1213,6 +1217,7 @@ class App(ctk.CTk):
     def _finish_accounts(self, data: list[dict] | None):
         self._accounts_loading = False
         self._accounts_data = data
+        self._accounts_time = datetime.now().strftime("%H:%M")
         self._render_accounts(data, offline=data is None)
 
     def _render_accounts(self, accounts: list[dict] | None, offline: bool = False):
@@ -1231,6 +1236,8 @@ class App(ctk.CTk):
                          text_color="gray", font=ctk.CTkFont(size=11)).pack(anchor="w")
             return
 
+        ctk.CTkLabel(self._accounts_body, text=self.t("accounts_updated", time=self._accounts_time),
+                     text_color="gray", font=ctk.CTkFont(size=11)).pack(anchor="w", pady=(0, 6))
         for account in accounts:
             self._render_account_card(account)
 
@@ -1438,6 +1445,8 @@ class App(ctk.CTk):
         if self._ticks % 12 == 0:   # every minute: caveman stats and tool routes spawn node, so less often
             self._check_caveman()
             self._load_tools_quiet()
+            if self._current_tab == "Accounts" and self.state() != "withdrawn":
+                self._load_accounts(quiet=True)
         self.after(5000, self._periodic)
 
     def _load_tools_quiet(self):

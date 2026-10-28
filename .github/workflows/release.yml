@@ -1,0 +1,33 @@
+# Ao enviar uma tag vX.Y.Z (ex.: git tag v1.0.3 && git push origin v1.0.3),
+# gera o instalador .msi no Windows e publica a release com ele.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  msi:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias de build
+        run: pip install -r requirements-build.txt
+
+      - name: Gerar .msi
+        shell: bash
+        run: VERSAO="${GITHUB_REF_NAME#v}" python setup.py bdist_msi
+
+      - name: Publicar release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.msi --title "9Router Manager $GITHUB_REF_NAME" --generate-notes

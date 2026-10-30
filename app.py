@@ -55,8 +55,38 @@ CAVEMAN_PORT    = 8788
 CAVEMAN_REPORT  = Path.home() / ".caveman" / "reports" / "caveman-stats.html"
 CAVEMAN_INSTALL = "npx -y @caveman-ai/cli@latest"
 CAVEMAN_UNINSTALL = "npx -y github:JuliusBrussee/caveman -- --uninstall && npm uninstall -g @caveman-ai/cli"
-SELECTED        = ("#1f538d", "#1f538d")
-HOVER           = ("gray80", "gray25")
+# (light, dark) pairs. Light mode follows VozComanda's palette; dark keeps customtkinter's "blue" theme.
+SELECTED        = ("#bfdbfe", "#1f538d")
+HOVER           = ("#e5e7eb", "gray25")
+C_TEXT          = ("#111827", "gray90")
+C_TEXT2         = ("#6b7280", "gray")
+C_OK            = ("#16a34a", "#27ae60")
+C_OK_LT         = ("#16a34a", "#2ecc71")
+C_INFO          = ("#1d4ed8", "#3498db")
+C_WARN          = ("#b45309", "#e67e22")
+C_WARN_LT       = ("#b45309", "#f39c12")
+C_ERR           = ("#dc2626", "#e74c3c")
+C_STOP          = ("#dc2626", "#c0392b")
+C_STOP_H        = ("#991b1b", "#922b21")
+LIGHT_THEME     = {   # light value of customtkinter's theme entries
+    ("CTk", "fg_color"): "#f0f2f5",
+    ("CTkToplevel", "fg_color"): "#f0f2f5",
+    ("CTkFrame", "fg_color"): "#ffffff",
+    ("CTkFrame", "top_fg_color"): "#f0f2f5",
+    ("CTkFrame", "border_color"): "#d1d5db",
+    ("CTkButton", "fg_color"): "#2563eb",
+    ("CTkButton", "hover_color"): "#1e40af",
+    ("CTkLabel", "text_color"): "#111827",
+    ("CTkEntry", "fg_color"): "#ffffff",
+    ("CTkEntry", "border_color"): "#d1d5db",
+    ("CTkEntry", "text_color"): "#111827",
+    ("CTkTextbox", "fg_color"): "#ffffff",
+    ("CTkTextbox", "border_color"): "#d1d5db",
+    ("CTkTextbox", "text_color"): "#111827",
+    ("CTkProgressBar", "fg_color"): "#e5e7eb",
+    ("CTkScrollbar", "button_color"): "#c4c8cf",
+    ("CTkScrollbar", "button_hover_color"): "#9ca3af",
+}
 # ─────────────────────────────────────────
 
 TEXTS: dict[str, dict[str, str]] = {
@@ -642,6 +672,8 @@ class App(ctk.CTk):
         self._cfg = load_config()
         ctk.set_appearance_mode(self._cfg.get("theme", "dark"))
         ctk.set_default_color_theme("blue")
+        for (widget, key), color in LIGHT_THEME.items():
+            ctk.ThemeManager.theme[widget][key][0] = color
         super().__init__()
         self.title("AI Router Manager")
         self.geometry("920x700")
@@ -744,13 +776,13 @@ class App(ctk.CTk):
         sidebar.pack_propagate(False)
 
         ctk.CTkLabel(sidebar, text="AI Router", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(24, 4))
-        self._reg(ctk.CTkLabel(sidebar, text=self.t("app_subtitle"), font=ctk.CTkFont(size=11), text_color="gray"),
+        self._reg(ctk.CTkLabel(sidebar, text=self.t("app_subtitle"), font=ctk.CTkFont(size=11), text_color=C_TEXT2),
                   "app_subtitle").pack(pady=(0, 20))
 
         self._nav_btns: dict[str, ctk.CTkButton] = {}
         for tab_key in ("Dashboard", "Tools", "Savers", "Accounts", "Logs"):
             btn = ctk.CTkButton(sidebar, text=self.t(f"nav_{tab_key.lower()}"), width=160, anchor="w",
-                                fg_color="transparent", hover_color=HOVER, text_color=("gray10", "gray90"),
+                                fg_color="transparent", hover_color=HOVER, text_color=C_TEXT,
                                 command=lambda k=tab_key: self._show_tab(k))
             btn.pack(padx=12, pady=4)
             self._nav_btns[tab_key] = btn
@@ -758,24 +790,24 @@ class App(ctk.CTk):
         lang_row = ctk.CTkFrame(sidebar, fg_color="transparent")
         lang_row.pack(side="bottom", pady=(0, 12))
         self._btn_pt = ctk.CTkButton(lang_row, text="PT", width=64, height=26, font=ctk.CTkFont(size=11, weight="bold"),
-                                     hover_color=HOVER, text_color=("gray10", "gray90"),
+                                     hover_color=HOVER, text_color=C_TEXT,
                                      command=lambda: self._set_lang("pt"))
         self._btn_pt.pack(side="left", padx=(0, 4))
         self._btn_en = ctk.CTkButton(lang_row, text="EN", width=64, height=26, font=ctk.CTkFont(size=11, weight="bold"),
-                                     hover_color=HOVER, text_color=("gray10", "gray90"),
+                                     hover_color=HOVER, text_color=C_TEXT,
                                      command=lambda: self._set_lang("en"))
         self._btn_en.pack(side="left")
 
         self._theme_btn = ctk.CTkButton(sidebar, text="", width=160, height=26, font=ctk.CTkFont(size=11),
                                         fg_color="transparent", border_width=1, hover_color=HOVER,
-                                        text_color=("gray10", "gray90"), command=self._toggle_theme)
+                                        text_color=C_TEXT, command=self._toggle_theme)
         self._theme_btn.pack(side="bottom", pady=(0, 6))
         if pystray:
             self._reg(ctk.CTkButton(sidebar, text=self.t("btn_background"), width=160, height=26,
                                     font=ctk.CTkFont(size=11), fg_color="gray40", hover_color="gray30",
                                     command=self.hide_to_tray), "btn_background").pack(side="bottom", pady=(0, 6))
         ctk.CTkLabel(sidebar, text=f"v{APP_VERSION}", font=ctk.CTkFont(size=10),
-                     text_color="gray").pack(side="bottom", pady=(0, 6))
+                     text_color=C_TEXT2).pack(side="bottom", pady=(0, 6))
         self._reg(ctk.CTkButton(sidebar, text=self.t("btn_support"), width=160, height=26, font=ctk.CTkFont(size=11),
                                 fg_color="#db61a2", hover_color="#bf4b8a",
                                 command=lambda: webbrowser.open(SPONSORS_URL)), "btn_support").pack(side="bottom", pady=(0, 6))
@@ -821,15 +853,15 @@ class App(ctk.CTk):
         status_card.pack(fill="x", pady=(0, 8))
         row = ctk.CTkFrame(status_card, fg_color="transparent")
         row.pack(fill="x", padx=16, pady=12)
-        self._status_dot = ctk.CTkLabel(row, text="●", font=ctk.CTkFont(size=22), text_color="#e74c3c", width=30)
+        self._status_dot = ctk.CTkLabel(row, text="●", font=ctk.CTkFont(size=22), text_color=C_ERR, width=30)
         self._status_dot.pack(side="left")
         info = ctk.CTkFrame(row, fg_color="transparent")
         info.pack(side="left", padx=8)
         self._status_label = ctk.CTkLabel(info, text=self.t("status_stopped"), font=ctk.CTkFont(size=14, weight="bold"))
         self._status_label.pack(anchor="w")
-        ctk.CTkLabel(info, text=f"Endpoint: {ROUTER_V1}", font=ctk.CTkFont(size=11), text_color="gray").pack(anchor="w")
+        ctk.CTkLabel(info, text=f"Endpoint: {ROUTER_V1}", font=ctk.CTkFont(size=11), text_color=C_TEXT2).pack(anchor="w")
         self._stop_btn = self._reg(ctk.CTkButton(row, text=self.t("btn_stop"), width=140,
-                                                 fg_color="#c0392b", hover_color="#922b21",
+                                                 fg_color=C_STOP, hover_color=C_STOP_H,
                                                  command=self._stop_router, state="disabled"), "btn_stop")
         self._stop_btn.pack(side="right")
         self._start_btn = self._reg(ctk.CTkButton(row, text=self.t("btn_start"), width=140,
@@ -837,10 +869,10 @@ class App(ctk.CTk):
         self._start_btn.pack(side="right", padx=8)
 
         # 9Router update banner (shown only when npm has a newer version)
-        self._upd_card = ctk.CTkFrame(frame, border_width=1, border_color="#e67e22")
+        self._upd_card = ctk.CTkFrame(frame, border_width=1, border_color=C_WARN)
         upd_row = ctk.CTkFrame(self._upd_card, fg_color="transparent")
         upd_row.pack(fill="x", padx=16, pady=10)
-        self._upd_lbl = ctk.CTkLabel(upd_row, text="", font=ctk.CTkFont(size=12, weight="bold"), text_color="#e67e22")
+        self._upd_lbl = ctk.CTkLabel(upd_row, text="", font=ctk.CTkFont(size=12, weight="bold"), text_color=C_WARN)
         self._upd_lbl.pack(side="left")
         self._upd_btn = self._reg(ctk.CTkButton(upd_row, text=self.t("btn_update"), width=150,
                                                 command=self._update_router), "btn_update")
@@ -876,10 +908,10 @@ class App(ctk.CTk):
                                               font=ctk.CTkFont(size=11), command=action), act_key)
             self._steps[key] = (mark, lbl, btn)
         self._traffic_hint = self._reg(ctk.CTkLabel(check, text=self.t("step_traffic_hint"), font=ctk.CTkFont(size=10),
-                                                    text_color="gray"), "step_traffic_hint")
+                                                    text_color=C_TEXT2), "step_traffic_hint")
         self._route_note = self._reg(ctk.CTkLabel(check, text=self.t("route_caveman"), font=ctk.CTkFont(size=11, weight="bold"),
-                                                  text_color="#3498db", wraplength=600, justify="left"), "route_caveman")
-        self._saver_lbl = ctk.CTkLabel(check, text="", font=ctk.CTkFont(size=11), text_color="gray",
+                                                  text_color=C_INFO, wraplength=600, justify="left"), "route_caveman")
+        self._saver_lbl = ctk.CTkLabel(check, text="", font=ctk.CTkFont(size=11), text_color=C_TEXT2,
                                        wraplength=600, justify="left")
         self._saver_lbl.pack(anchor="w", padx=16, pady=(6, 10))
 
@@ -895,19 +927,19 @@ class App(ctk.CTk):
 
         stat_row = ctk.CTkFrame(usage, fg_color="transparent")
         stat_row.pack(fill="x", padx=16, pady=(0, 4))
-        self._stat_tokens_lbl = ctk.CTkLabel(stat_row, text="0", font=ctk.CTkFont(size=22, weight="bold"), text_color="#27ae60")
+        self._stat_tokens_lbl = ctk.CTkLabel(stat_row, text="0", font=ctk.CTkFont(size=22, weight="bold"), text_color=C_OK)
         self._stat_tokens_lbl.pack(side="left", padx=(0, 2))
-        self._reg(ctk.CTkLabel(stat_row, text=self.t("stat_tokens"), font=ctk.CTkFont(size=10), text_color="gray"),
+        self._reg(ctk.CTkLabel(stat_row, text=self.t("stat_tokens"), font=ctk.CTkFont(size=10), text_color=C_TEXT2),
                   "stat_tokens").pack(side="left", padx=(0, 20))
         self._stat_req_lbl = ctk.CTkLabel(stat_row, text="0", font=ctk.CTkFont(size=22, weight="bold"))
         self._stat_req_lbl.pack(side="left", padx=(0, 2))
-        self._reg(ctk.CTkLabel(stat_row, text=self.t("stat_requests"), font=ctk.CTkFont(size=10), text_color="gray"),
+        self._reg(ctk.CTkLabel(stat_row, text=self.t("stat_requests"), font=ctk.CTkFont(size=10), text_color=C_TEXT2),
                   "stat_requests").pack(side="left", padx=(0, 20))
-        self._stat_cost_lbl = ctk.CTkLabel(stat_row, text="$0.00", font=ctk.CTkFont(size=22, weight="bold"), text_color="#e67e22")
+        self._stat_cost_lbl = ctk.CTkLabel(stat_row, text="$0.00", font=ctk.CTkFont(size=22, weight="bold"), text_color=C_WARN)
         self._stat_cost_lbl.pack(side="left", padx=(0, 2))
-        self._reg(ctk.CTkLabel(stat_row, text=self.t("stat_cost"), font=ctk.CTkFont(size=10), text_color="gray"),
+        self._reg(ctk.CTkLabel(stat_row, text=self.t("stat_cost"), font=ctk.CTkFont(size=10), text_color=C_TEXT2),
                   "stat_cost").pack(side="left")
-        self._usage_note = ctk.CTkLabel(usage, text="", font=ctk.CTkFont(size=10), text_color="gray")
+        self._usage_note = ctk.CTkLabel(usage, text="", font=ctk.CTkFont(size=10), text_color=C_TEXT2)
         self._usage_note.pack(anchor="w", padx=16, pady=(2, 8))
 
     def _refresh_snapshot_views(self):
@@ -935,8 +967,8 @@ class App(ctk.CTk):
         }
         for key, (mark, lbl, btn) in self._steps.items():
             ok = done[key]
-            mark.configure(text="✓" if ok else "○", text_color="#27ae60" if ok else "#e67e22")
-            lbl.configure(text=texts[key], text_color=("gray10", "gray90") if ok else "#e67e22")
+            mark.configure(text="✓" if ok else "○", text_color=C_OK if ok else C_WARN)
+            lbl.configure(text=texts[key], text_color=C_TEXT if ok else C_WARN)
             if btn:
                 if ok:
                     btn.pack_forget()
@@ -951,7 +983,7 @@ class App(ctk.CTk):
         missing = sum(1 for v in done.values() if not v)
         self._check_summary.configure(
             text=self.t("check_all_ok") if not missing else self.t("check_missing", n=missing),
-            text_color="#27ae60" if not missing else "#e67e22",
+            text_color=C_OK if not missing else C_WARN,
         )
         savers = [self.t("saver_hr_down") if m == "Headroom" and not port_open(HEADROOM_PORT) else m
                   for m in s["savers"]]
@@ -980,14 +1012,14 @@ class App(ctk.CTk):
             "btn_connect_all")
         self._connect_all_btn.pack(side="right", padx=6)
 
-        self._tools_status = ctk.CTkLabel(frame, text="", font=ctk.CTkFont(size=11), text_color="#e67e22")
+        self._tools_status = ctk.CTkLabel(frame, text="", font=ctk.CTkFont(size=11), text_color=C_WARN)
         self._tools_status.pack(anchor="w")
 
         self._reg(ctk.CTkLabel(frame, text=self.t("tools_cli"), font=ctk.CTkFont(size=13, weight="bold")),
                   "tools_cli").pack(anchor="w", pady=(4, 4))
         self._tools_list = ctk.CTkFrame(frame)
         self._tools_list.pack(fill="x")
-        self._reg(ctk.CTkLabel(frame, text=self.t("tools_hint"), font=ctk.CTkFont(size=10), text_color="gray",
+        self._reg(ctk.CTkLabel(frame, text=self.t("tools_hint"), font=ctk.CTkFont(size=10), text_color=C_TEXT2,
                                wraplength=600, justify="left"), "tools_hint").pack(anchor="w", pady=(4, 12))
 
         self._reg(ctk.CTkLabel(frame, text=self.t("tools_dash_title"), font=ctk.CTkFont(size=13, weight="bold")),
@@ -1003,7 +1035,7 @@ class App(ctk.CTk):
             self._reg(ctk.CTkLabel(top, text=self.t(title_key), font=ctk.CTkFont(size=12, weight="bold")),
                       title_key).pack(side="left")
             self._link_button(top, btn_key, url).pack(side="right")
-            self._reg(ctk.CTkLabel(card, text=self.t(text_key), font=ctk.CTkFont(size=11), text_color="gray",
+            self._reg(ctk.CTkLabel(card, text=self.t(text_key), font=ctk.CTkFont(size=11), text_color=C_TEXT2,
                                    wraplength=580, justify="left"), text_key).pack(anchor="w", padx=14, pady=(0, 10))
 
     def _load_tools(self):
@@ -1041,7 +1073,7 @@ class App(ctk.CTk):
         for child in self._tools_list.winfo_children():
             child.destroy()
         if self._tools is None:
-            ctk.CTkLabel(self._tools_list, text=self.t("tools_loading"), text_color="gray").pack(padx=14, pady=10, anchor="w")
+            ctk.CTkLabel(self._tools_list, text=self.t("tools_loading"), text_color=C_TEXT2).pack(padx=14, pady=10, anchor="w")
             return
         state = "disabled" if self._tools_busy else "normal"
         for tool in self._tools:
@@ -1049,7 +1081,7 @@ class App(ctk.CTk):
             row.pack(fill="x", padx=12, pady=3)
             route = tool_route(tool)
             url = tool.get("baseUrl") or ""
-            dot = {"router": "#27ae60", "other": "#3498db"}.get(route, "gray50")
+            dot = {"router": C_OK, "other": C_INFO}.get(route, "gray50")
             ctk.CTkLabel(row, text="●", text_color=dot, width=18).pack(side="left")
             ctk.CTkLabel(row, text=tool.get("name", tool.get("id", "?")), width=150, anchor="w",
                          font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
@@ -1059,7 +1091,7 @@ class App(ctk.CTk):
                 status = self.t("tool_other_cv" if f":{CAVEMAN_PORT}" in url else "tool_other", url=url)
             else:
                 status = self.t("tool_off")
-            ctk.CTkLabel(row, text=status, anchor="w", text_color="gray", font=ctk.CTkFont(size=11)).pack(side="left", padx=6)
+            ctk.CTkLabel(row, text=status, anchor="w", text_color=C_TEXT2, font=ctk.CTkFont(size=11)).pack(side="left", padx=6)
             remove_state = "disabled" if self._tools_busy or route == "off" else "normal"
             connect_state = "disabled" if self._tools_busy or route == "router" else "normal"
             ctk.CTkButton(row, text=self.t("btn_remove"), width=80, height=26, fg_color="gray50", state=remove_state,
@@ -1125,7 +1157,7 @@ class App(ctk.CTk):
         self._reg(ctk.CTkLabel(hdr, text=self.t("savers_title"), font=ctk.CTkFont(size=18, weight="bold")),
                   "savers_title").pack(side="left")
         self._link_button(hdr, "btn_token_saver", f"{DASH}/token-saver", width=150).pack(side="right")
-        self._reg(ctk.CTkLabel(frame, text=self.t("savers_intro"), font=ctk.CTkFont(size=11), text_color="gray",
+        self._reg(ctk.CTkLabel(frame, text=self.t("savers_intro"), font=ctk.CTkFont(size=11), text_color=C_TEXT2,
                                wraplength=620, justify="left"), "savers_intro").pack(anchor="w", pady=(0, 10))
 
         sv = ctk.CTkFrame(frame)
@@ -1141,7 +1173,7 @@ class App(ctk.CTk):
                                 command=self._load_savings), "btn_refresh").pack(side="right", padx=6)
         self._savings_body = ctk.CTkFrame(sv, fg_color="transparent")
         self._savings_body.pack(fill="x", padx=14)
-        self._reg(ctk.CTkLabel(sv, text=self.t("cv_note"), font=ctk.CTkFont(size=10), text_color="gray",
+        self._reg(ctk.CTkLabel(sv, text=self.t("cv_note"), font=ctk.CTkFont(size=10), text_color=C_TEXT2,
                                wraplength=600, justify="left"), "cv_note").pack(anchor="w", padx=14, pady=(2, 10))
 
         def card(title_key, text_key):
@@ -1149,7 +1181,7 @@ class App(ctk.CTk):
             c.pack(fill="x", pady=(0, 10))
             self._reg(ctk.CTkLabel(c, text=self.t(title_key), font=ctk.CTkFont(size=13, weight="bold")),
                       title_key).pack(anchor="w", padx=14, pady=(10, 2))
-            self._reg(ctk.CTkLabel(c, text=self.t(text_key), font=ctk.CTkFont(size=11), text_color="gray",
+            self._reg(ctk.CTkLabel(c, text=self.t(text_key), font=ctk.CTkFont(size=11), text_color=C_TEXT2,
                                    wraplength=600, justify="left"), text_key).pack(anchor="w", padx=14)
             status = ctk.CTkLabel(c, text="", font=ctk.CTkFont(size=12, weight="bold"))
             status.pack(anchor="w", padx=14, pady=(6, 4))
@@ -1165,13 +1197,13 @@ class App(ctk.CTk):
         _, self._hr_status, row = card("hr_title", "hr_text")
         self._hr_install_btn = button(row, "btn_install", self._install_headroom)
         self._hr_start_btn = button(row, "btn_start_short", self._start_headroom)
-        self._hr_stop_btn = button(row, "btn_stop_short", self._stop_headroom, fg_color="#c0392b", hover_color="#922b21")
+        self._hr_stop_btn = button(row, "btn_stop_short", self._stop_headroom, fg_color=C_STOP, hover_color=C_STOP_H)
 
         cv_card, self._cv_status, row = card("cv_title", "cv_text")
         self._reg(ctk.CTkLabel(cv_card, text=self.t("cv_order"), font=ctk.CTkFont(size=11, weight="bold"),
-                               text_color="#e67e22", wraplength=600, justify="left"),
+                               text_color=C_WARN, wraplength=600, justify="left"),
                   "cv_order").pack(anchor="w", padx=14, pady=(0, 4), before=row)
-        self._reg(ctk.CTkLabel(cv_card, text=self.t("cv_telemetry"), font=ctk.CTkFont(size=10), text_color="gray",
+        self._reg(ctk.CTkLabel(cv_card, text=self.t("cv_telemetry"), font=ctk.CTkFont(size=10), text_color=C_TEXT2,
                                wraplength=600, justify="left"), "cv_telemetry").pack(anchor="w", padx=14, pady=(0, 6), before=row)
         self._cv_install_btn = button(row, "btn_install", lambda: self._open_terminal("Caveman", CAVEMAN_INSTALL))
         button(row, "btn_cv_status", lambda: self._open_terminal("Caveman", "caveman status"))
@@ -1180,11 +1212,11 @@ class App(ctk.CTk):
 
     def _refresh_savers(self):
         if self._hr_installing:
-            text, color = self.t("hr_installing"), "#e67e22"
+            text, color = self.t("hr_installing"), C_WARN
         elif port_open(HEADROOM_PORT):
-            text, color = self.t("hr_running"), "#27ae60"
+            text, color = self.t("hr_running"), C_OK
         elif HEADROOM_EXE.exists():
-            text, color = self.t("hr_stopped"), "#e67e22"
+            text, color = self.t("hr_stopped"), C_WARN
         else:
             text, color = self.t("hr_missing"), "gray50"
         self._hr_status.configure(text=text, text_color=color)
@@ -1195,7 +1227,7 @@ class App(ctk.CTk):
         self._hr_stop_btn.configure(state="normal" if running else "disabled")
 
         if self._cv_version:
-            self._cv_status.configure(text=self.t("cv_installed", v=self._cv_version), text_color="#27ae60")
+            self._cv_status.configure(text=self.t("cv_installed", v=self._cv_version), text_color=C_OK)
         else:
             self._cv_status.configure(text=self.t("cv_missing"), text_color="gray50")
 
@@ -1237,23 +1269,23 @@ class App(ctk.CTk):
         for w in self._savings_body.winfo_children():
             w.destroy()
         if data is None:
-            ctk.CTkLabel(self._savings_body, text=self.t("sv_loading"), text_color="gray").pack(anchor="w", pady=6)
+            ctk.CTkLabel(self._savings_body, text=self.t("sv_loading"), text_color=C_TEXT2).pack(anchor="w", pady=6)
             return
         if not data:
-            ctk.CTkLabel(self._savings_body, text=self.t("sv_none"), text_color="gray", font=ctk.CTkFont(size=11),
+            ctk.CTkLabel(self._savings_body, text=self.t("sv_none"), text_color=C_TEXT2, font=ctk.CTkFont(size=11),
                          wraplength=600, justify="left").pack(anchor="w", pady=6)
         else:
             total = ctk.CTkFrame(self._savings_body, fg_color="transparent")
             total.pack(fill="x", pady=(0, 6))
             ctk.CTkLabel(total, text=_fmt_int(sum(d["saved"] for d in data)), font=ctk.CTkFont(size=24, weight="bold"),
-                         text_color="#27ae60").pack(side="left", padx=(0, 6))
-            ctk.CTkLabel(total, text=self.t("sv_total"), font=ctk.CTkFont(size=11), text_color="gray").pack(side="left")
+                         text_color=C_OK).pack(side="left", padx=(0, 6))
+            ctk.CTkLabel(total, text=self.t("sv_total"), font=ctk.CTkFont(size=11), text_color=C_TEXT2).pack(side="left")
             for d in data:
                 row = ctk.CTkFrame(self._savings_body, fg_color="transparent")
                 row.pack(fill="x", pady=1)
                 ctk.CTkLabel(row, text=self.t(d["key"]), width=200, anchor="w",
                              font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
-                ctk.CTkLabel(row, text=_fmt_int(d["saved"]), width=110, anchor="w", text_color="#27ae60",
+                ctk.CTkLabel(row, text=_fmt_int(d["saved"]), width=110, anchor="w", text_color=C_OK,
                              font=ctk.CTkFont(size=14, weight="bold")).pack(side="left")
                 parts = []
                 if d["before"]:
@@ -1261,9 +1293,9 @@ class App(ctk.CTk):
                 parts.append(f"{d['requests']} {self.t('cv_requests').lower()}")
                 if d["usd"] is not None:
                     parts.append(f"${d['usd']:.4f}")
-                ctk.CTkLabel(row, text=" · ".join(parts), font=ctk.CTkFont(size=11), text_color="gray").pack(side="left")
+                ctk.CTkLabel(row, text=" · ".join(parts), font=ctk.CTkFont(size=11), text_color=C_TEXT2).pack(side="left")
         ctk.CTkLabel(self._savings_body, text=self.t("updated_every_min", time=self._savings_time),
-                     text_color="gray", font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(4, 0))
+                     text_color=C_TEXT2, font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(4, 0))
 
     # ── 9Router update ───────────────────────────────────────────────────────
 
@@ -1419,18 +1451,18 @@ class App(ctk.CTk):
 
         if accounts is None and not offline:
             ctk.CTkLabel(self._accounts_body, text=self.t("accounts_loading"),
-                         text_color="gray").pack(anchor="w", pady=20)
+                         text_color=C_TEXT2).pack(anchor="w", pady=20)
             return
 
         if not accounts:
             ctk.CTkLabel(self._accounts_body, text=self.t("accounts_offline" if offline else "accounts_empty"),
-                         text_color="gray", font=ctk.CTkFont(size=13)).pack(anchor="w", pady=(20, 6))
+                         text_color=C_TEXT2, font=ctk.CTkFont(size=13)).pack(anchor="w", pady=(20, 6))
             ctk.CTkLabel(self._accounts_body, text=self.t("accounts_hint"),
-                         text_color="gray", font=ctk.CTkFont(size=11)).pack(anchor="w")
+                         text_color=C_TEXT2, font=ctk.CTkFont(size=11)).pack(anchor="w")
             return
 
         ctk.CTkLabel(self._accounts_body, text=self.t("updated_every_min", time=self._accounts_time),
-                     text_color="gray", font=ctk.CTkFont(size=11)).pack(anchor="w", pady=(0, 6))
+                     text_color=C_TEXT2, font=ctk.CTkFont(size=11)).pack(anchor="w", pady=(0, 6))
         for account in accounts:
             self._render_account_card(account)
 
@@ -1440,13 +1472,13 @@ class App(ctk.CTk):
 
         hdr = ctk.CTkFrame(card, fg_color="transparent")
         hdr.pack(fill="x", padx=14, pady=(10, 6))
-        ctk.CTkLabel(hdr, text="●", text_color="#e74c3c" if account["error"] else "#2ecc71",
+        ctk.CTkLabel(hdr, text="●", text_color=C_ERR if account["error"] else C_OK_LT,
                      font=ctk.CTkFont(size=16)).pack(side="left")
         ctk.CTkLabel(hdr, text=f"{account['provider'].capitalize()}  {account['name']}".strip(),
                      font=ctk.CTkFont(size=13, weight="bold")).pack(side="left", padx=8)
         if account["plan"]:
             ctk.CTkLabel(hdr, text=account["plan"], font=ctk.CTkFont(size=11),
-                         text_color="gray").pack(side="right")
+                         text_color=C_TEXT2).pack(side="right")
 
         if account["error"]:
             message = self.t("accounts_error")
@@ -1456,7 +1488,7 @@ class App(ctk.CTk):
             message = None
         if message:
             ctk.CTkLabel(card, text=message, font=ctk.CTkFont(size=11),
-                         text_color="gray").pack(anchor="w", padx=14, pady=(0, 10))
+                         text_color=C_TEXT2).pack(anchor="w", padx=14, pady=(0, 10))
             return
         for q in account["quotas"]:
             self._render_quota_row(card, q)
@@ -1477,7 +1509,7 @@ class App(ctk.CTk):
 
         if quota.get("unlimited"):
             ctk.CTkLabel(row, text=self.t("accounts_unlimited"), font=ctk.CTkFont(size=11),
-                         text_color="gray").pack(side="left", padx=8)
+                         text_color=C_TEXT2).pack(side="left", padx=8)
             return
 
         total = quota.get("total") or 0
@@ -1485,7 +1517,7 @@ class App(ctk.CTk):
         if remaining is None:
             remaining = total - (quota.get("used") or 0)
         ratio = max(0.0, min(1.0, remaining / total)) if total else 0.0
-        color = "#2ecc71" if ratio > 0.5 else ("#f39c12" if ratio > 0.2 else "#e74c3c")
+        color = C_OK_LT if ratio > 0.5 else (C_WARN_LT if ratio > 0.2 else C_ERR)
 
         bar = ctk.CTkProgressBar(row, width=180, height=12, corner_radius=4, progress_color=color)
         bar.set(ratio)
@@ -1495,7 +1527,7 @@ class App(ctk.CTk):
         left = _time_until(quota.get("resetAt"))
         if left:
             stats += f"   {self.t('accounts_reset')} {left}"
-        ctk.CTkLabel(row, text=stats, font=ctk.CTkFont(size=11), text_color="gray").pack(side="left")
+        ctk.CTkLabel(row, text=stats, font=ctk.CTkFont(size=11), text_color=C_TEXT2).pack(side="left")
 
     # ── Logs tab ──────────────────────────────────────────────────────────────
 
@@ -1684,13 +1716,13 @@ class App(ctk.CTk):
 
     def _refresh_status(self):
         if self._running:
-            self._status_dot.configure(text_color="#27ae60")
+            self._status_dot.configure(text_color=C_OK)
             self._status_label.configure(text=self.t("status_running"))
             self._start_btn.configure(state="disabled")
             self._stop_btn.configure(state="normal")
             self._tools_status.configure(text="")
         else:
-            self._status_dot.configure(text_color="#e74c3c")
+            self._status_dot.configure(text_color=C_ERR)
             self._status_label.configure(text=self.t("status_stopped"))
             self._start_btn.configure(state="normal")
             self._stop_btn.configure(state="disabled")

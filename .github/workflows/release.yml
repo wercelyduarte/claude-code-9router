@@ -31,7 +31,7 @@ jobs:
       - name: Gerar .msix (Microsoft Store)
         run: python build_msix.py
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: msix-store
           path: dist/*.msix

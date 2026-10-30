@@ -193,6 +193,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "logs_title":      "Logs",
         "btn_clear":       "Limpar",
         "log_starting":    "Iniciando 9Router…",
+        "log_autostart":   "[auto] Há conexões configuradas — iniciando o 9Router automaticamente.",
         "log_stopping":    "Parando 9Router…",
         "log_not_found":   "ERRO: comando '9router' não encontrado.",
         "log_ended":       "Processo 9Router encerrado.",
@@ -331,6 +332,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "logs_title":      "Logs",
         "btn_clear":       "Clear",
         "log_starting":    "Starting 9Router…",
+        "log_autostart":   "[auto] Connections are configured — starting 9Router automatically.",
         "log_stopping":    "Stopping 9Router…",
         "log_not_found":   "ERROR: '9router' command not found.",
         "log_ended":       "9Router process ended.",
@@ -671,6 +673,7 @@ class App(ctk.CTk):
         self._savings_data: list[dict] | None = None
         self._savings_time = ""
         self._update: tuple[str, str] | None = None   # (installed, latest) 9router versions
+        self._autostart_checked = False
 
         self._build_ui()
         self._apply_lang_buttons()
@@ -1021,6 +1024,18 @@ class App(ctk.CTk):
         self._tools = tools
         self._render_tools()
         self._refresh_snapshot_views()
+        if not self._autostart_checked:
+            self._autostart_checked = True
+            self._autostart()
+
+    def _autostart(self):
+        """On launch, start 9Router when something already depends on it: a provider account
+        or a tool pointed at it (that tool's requests fail while 9Router is down)."""
+        if self._running or port_open():
+            return
+        if self._snap["providers"] > 0 or any(tool_route(t) == "router" for t in self._tools or []):
+            self._log(self.t("log_autostart"))
+            self._start_router()
 
     def _render_tools(self):
         for child in self._tools_list.winfo_children():

@@ -66,7 +66,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "nav_logs":        "Logs",
         # Accounts tab
         "accounts_title":  "Consumo de tokens & limites",
-        "accounts_updated":"Atualizado às {time} · atualiza a cada 1 min",
+        "updated_every_min":"Atualizado às {time} · atualiza a cada 1 min",
         "accounts_empty":  "Nenhuma conta encontrada.",
         "accounts_hint":   "Inicie o 9Router no Painel e clique em Atualizar.",
         "accounts_offline":"O 9Router não está rodando.",
@@ -104,14 +104,23 @@ TEXTS: dict[str, dict[str, str]] = {
         "saver_hr_down":   "Headroom (ligado no 9Router, mas não está rodando — veja a aba Economia)",
         "tool_other":      "Aponta para outro proxy — {url}",
         "tool_other_cv":   "Usa o Caveman, não o 9Router — {url}",
-        "route_caveman":   "O Claude Code está passando pelo Caveman, não pelo 9Router. Por isso o 9Router não conta esse uso — a economia dele aparece no card do Caveman abaixo.",
-        "cv_card_title":   "Economia do Caveman (últimos 30 dias)",
-        "cv_saved":        "Tokens economizados",
+        "route_caveman":   "O Claude Code está passando pelo Caveman, não pelo 9Router. Por isso o 9Router não conta esse uso — a economia dele aparece na aba Economia.",
+        "sv_title":        "Tokens economizados",
+        "sv_total":        "tokens economizados no total",
+        "sv_none":         "Nenhum economizador registrou economia ainda. Instale ou ligue o Headroom ou o Caveman abaixo e use suas ferramentas.",
+        "sv_loading":      "Carregando economia…",
+        "sv_caveman":      "Caveman (últimos 30 dias)",
+        "sv_headroom":     "Headroom",
+        "sv_pxpipe":       "Compressão do 9Router",
+        "upd_available":   "Nova versão do 9Router disponível: v{new} (você tem v{cur})",
+        "btn_update":      "Atualizar 9Router",
+        "upd_running":     "Atualizando…",
+        "upd_done":        "[update] 9Router atualizado para v{v}",
+        "upd_failed":      "[update] Falha ao atualizar o 9Router — veja as mensagens acima",
         "cv_requests":     "Requisições",
         "cv_pct":          "da entrada",
-        "cv_usd":          "Equivalente (USD)",
         "btn_cv_report":   "Abrir relatório",
-        "cv_note":         "Estimativa do próprio Caveman. Com assinatura (Pro/Max) o valor em USD é só uma referência — não reduz sua fatura.",
+        "cv_note":         "Estimativas dos próprios economizadores. Com assinatura (Pro/Max) o valor em USD é só uma referência — não reduz sua fatura.",
         "version":         "v0.5.x",
         "btn_background":  "Rodar em segundo plano",
         "theme_dark":      "Tema: escuro",
@@ -195,7 +204,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "nav_logs":        "Logs",
         # Accounts tab
         "accounts_title":  "Token usage & limits",
-        "accounts_updated":"Updated at {time} · refreshes every 1 min",
+        "updated_every_min":"Updated at {time} · refreshes every 1 min",
         "accounts_empty":  "No accounts found.",
         "accounts_hint":   "Start 9Router on the Dashboard and click Refresh.",
         "accounts_offline":"9Router is not running.",
@@ -233,14 +242,23 @@ TEXTS: dict[str, dict[str, str]] = {
         "saver_hr_down":   "Headroom (on in 9Router, but not running — see the Savers tab)",
         "tool_other":      "Points to another proxy — {url}",
         "tool_other_cv":   "Uses Caveman, not 9Router — {url}",
-        "route_caveman":   "Claude Code goes through Caveman, not 9Router, so 9Router doesn't count that usage — its savings show in the Caveman card below.",
-        "cv_card_title":   "Caveman savings (last 30 days)",
-        "cv_saved":        "Tokens saved",
+        "route_caveman":   "Claude Code goes through Caveman, not 9Router, so 9Router doesn't count that usage — its savings show in the Savers tab.",
+        "sv_title":        "Tokens saved",
+        "sv_total":        "tokens saved in total",
+        "sv_none":         "No saver has recorded savings yet. Install or start Headroom or Caveman below and use your tools.",
+        "sv_loading":      "Loading savings…",
+        "sv_caveman":      "Caveman (last 30 days)",
+        "sv_headroom":     "Headroom",
+        "sv_pxpipe":       "9Router compression",
+        "upd_available":   "New 9Router version available: v{new} (you have v{cur})",
+        "btn_update":      "Update 9Router",
+        "upd_running":     "Updating…",
+        "upd_done":        "[update] 9Router updated to v{v}",
+        "upd_failed":      "[update] 9Router update failed — see the messages above",
         "cv_requests":     "Requests",
         "cv_pct":          "of input",
-        "cv_usd":          "Equivalent (USD)",
         "btn_cv_report":   "Open report",
-        "cv_note":         "Caveman's own estimate. On a subscription (Pro/Max) the USD value is only a reference — it doesn't lower your bill.",
+        "cv_note":         "The savers' own estimates. On a subscription (Pro/Max) the USD value is only a reference — it doesn't lower your bill.",
         "version":         "v0.5.x",
         "btn_background":  "Run in background",
         "theme_dark":      "Theme: dark",
@@ -461,6 +479,65 @@ def caveman_stats() -> dict | None:
         return None
 
 
+def _version_tuple(v: str) -> tuple:
+    try:
+        return tuple(int(p) for p in v.split("-")[0].split("."))
+    except ValueError:
+        return ()
+
+
+def router_update() -> tuple[str, str] | None:
+    """(installed, latest) when npm has a newer 9router, else None. The app runs 9router with
+    --skip-update, so 9router's own update prompt never shows; this check replaces it."""
+    r = subprocess.run("9router --version", shell=True, capture_output=True, text=True, stdin=subprocess.DEVNULL,
+                       creationflags=NO_WINDOW, encoding="utf-8", errors="replace")
+    installed = (r.stdout.strip().splitlines() or [""])[-1] if r.returncode == 0 else ""
+    try:
+        with urllib.request.urlopen("https://registry.npmjs.org/9router/latest", timeout=5) as resp:
+            latest = json.loads(resp.read()).get("version") or ""
+    except (urllib.error.URLError, OSError, ValueError, AttributeError):
+        return None
+    if installed and latest and _version_tuple(latest) > _version_tuple(installed):
+        return installed, latest
+    return None
+
+
+def token_savings() -> list[dict]:
+    """Tokens saved per saver, each from its own source: Caveman's CLI, Headroom's proxy and
+    9router's built-in compression (pxpipe). Savers that are off or never saved anything are left out."""
+    out = []
+    st = caveman_stats()
+    if st and st.get("saved_tokens"):
+        out.append({"key": "sv_caveman", "saved": st["saved_tokens"], "before": st.get("before_tokens") or 0,
+                    "requests": st.get("requests") or 0, "usd": st.get("api_equivalent_savings_usd") or 0})
+    if port_open(HEADROOM_PORT):
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{HEADROOM_PORT}/stats", timeout=5) as r:
+                hr = json.loads(r.read())
+            summary = hr.get("summary") or {}
+            comp = summary.get("compression") or {}
+            saved = (hr.get("savings") or {}).get("total_tokens") or comp.get("total_tokens_saved_all_layers") or 0
+            if saved:
+                out.append({"key": "sv_headroom", "saved": saved, "before": comp.get("total_tokens_before") or 0,
+                            "requests": summary.get("api_requests") or 0,
+                            "usd": (summary.get("cost") or {}).get("total_saved_usd") or 0})
+        except (urllib.error.URLError, OSError, ValueError, AttributeError):
+            pass
+    if port_open():
+        try:
+            px = ((_router_get("/api/pxpipe/stats", _cli_token(), timeout=5).get("windows") or {}).get("all")) or {}
+            if px.get("tokensSavedEst"):
+                out.append({"key": "sv_pxpipe", "saved": px["tokensSavedEst"], "before": px.get("tokensBeforeEst") or 0,
+                            "requests": px.get("compressed") or 0, "usd": None})
+        except (urllib.error.URLError, OSError, ValueError, AttributeError):
+            pass
+    return out
+
+
+def _fmt_int(n) -> str:
+    return f"{int(n):,}".replace(",", ".")
+
+
 def _cli_token() -> str:
     """The same local token 9router's own CLI sends (x-9r-cli-token): built from files only this
     Windows user can read, so no dashboard password is needed and no failed logins are counted."""
@@ -583,11 +660,14 @@ class App(ctk.CTk):
         self._hr_proc: subprocess.Popen | None = None
         self._hr_installing = False
         self._cv_version: str | None = None
-        self._cv_stats: dict | None = None
         self._ticks = 0
         self._accounts_loading = False
         self._accounts_data: list[dict] | None = None   # last result, re-rendered on language change
         self._accounts_time = ""
+        self._savings_loading = False
+        self._savings_data: list[dict] | None = None
+        self._savings_time = ""
+        self._update: tuple[str, str] | None = None   # (installed, latest) 9router versions
 
         self._build_ui()
         self._apply_lang_buttons()
@@ -598,6 +678,7 @@ class App(ctk.CTk):
         # Worker threads call self.after(), which fails until mainloop runs, so start them from inside it
         self.after(0, self._load_tools)
         self.after(0, self._check_caveman)
+        self.after(0, self._check_router_update)
         self.after(0, self._start_tray)
         self.after(1000, self._watch_port)
         self.after(5000, self._periodic)
@@ -630,6 +711,9 @@ class App(ctk.CTk):
         self._refresh_savers()
         if self._accounts_data is not None:
             self._render_accounts(self._accounts_data)
+        if self._savings_data is not None:
+            self._render_savings(self._savings_data)
+        self._refresh_update_card()
         if self._tray:
             self._tray.update_menu()
 
@@ -707,6 +791,8 @@ class App(ctk.CTk):
         self._nav_btns[name].configure(fg_color=SELECTED)
         if name == "Accounts":
             self.after(100, self._load_accounts)
+        elif name == "Savers":
+            self.after(100, self._load_savings)
 
     def _link_button(self, parent, key: str, url: str, width=150):
         return self._reg(ctk.CTkButton(parent, text=self.t(key), width=width, height=26, font=ctk.CTkFont(size=11),
@@ -740,6 +826,18 @@ class App(ctk.CTk):
         self._start_btn = self._reg(ctk.CTkButton(row, text=self.t("btn_start"), width=140,
                                                   command=self._start_router), "btn_start")
         self._start_btn.pack(side="right", padx=8)
+
+        # 9Router update banner (shown only when npm has a newer version)
+        self._upd_card = ctk.CTkFrame(frame, border_width=1, border_color="#e67e22")
+        upd_row = ctk.CTkFrame(self._upd_card, fg_color="transparent")
+        upd_row.pack(fill="x", padx=16, pady=10)
+        self._upd_lbl = ctk.CTkLabel(upd_row, text="", font=ctk.CTkFont(size=12, weight="bold"), text_color="#e67e22")
+        self._upd_lbl.pack(side="left")
+        self._upd_btn = self._reg(ctk.CTkButton(upd_row, text=self.t("btn_update"), width=150,
+                                                command=self._update_router), "btn_update")
+        self._upd_btn.pack(side="right")
+        self._upd_anchor = ctk.CTkFrame(frame, height=0, fg_color="transparent")
+        self._upd_anchor.pack(fill="x")
 
         # Checklist card
         check = ctk.CTkFrame(frame)
@@ -803,28 +901,6 @@ class App(ctk.CTk):
         self._usage_note = ctk.CTkLabel(usage, text="", font=ctk.CTkFont(size=10), text_color="gray")
         self._usage_note.pack(anchor="w", padx=16, pady=(2, 8))
 
-        # Caveman card (shown only when Caveman is installed)
-        self._cv_card = ctk.CTkFrame(frame)
-        hdr = ctk.CTkFrame(self._cv_card, fg_color="transparent")
-        hdr.pack(fill="x", padx=16, pady=(10, 6))
-        self._reg(ctk.CTkLabel(hdr, text=self.t("cv_card_title"), font=ctk.CTkFont(size=13, weight="bold")),
-                  "cv_card_title").pack(side="left")
-        self._reg(ctk.CTkButton(hdr, text=self.t("btn_cv_report"), width=130, height=26, font=ctk.CTkFont(size=11),
-                                command=lambda: CAVEMAN_REPORT.exists() and os.startfile(CAVEMAN_REPORT)),
-                  "btn_cv_report").pack(side="right")
-        row = ctk.CTkFrame(self._cv_card, fg_color="transparent")
-        row.pack(fill="x", padx=16, pady=(0, 4))
-        self._cv_vals = {}
-        for key, color in (("cv_saved", "#27ae60"), ("cv_pct", None), ("cv_requests", None), ("cv_usd", "#e67e22")):
-            v = ctk.CTkLabel(row, text="—", font=ctk.CTkFont(size=22, weight="bold"),
-                             **({"text_color": color} if color else {}))
-            v.pack(side="left", padx=(0, 2))
-            self._reg(ctk.CTkLabel(row, text=self.t(key), font=ctk.CTkFont(size=10), text_color="gray"),
-                      key).pack(side="left", padx=(0, 18))
-            self._cv_vals[key] = v
-        self._reg(ctk.CTkLabel(self._cv_card, text=self.t("cv_note"), font=ctk.CTkFont(size=10), text_color="gray",
-                               wraplength=600, justify="left"), "cv_note").pack(anchor="w", padx=16, pady=(2, 8))
-
     def _refresh_snapshot_views(self):
         s = self._snap
         tools = self._tools or []
@@ -834,7 +910,6 @@ class App(ctk.CTk):
             self._route_note.pack(anchor="w", padx=16, pady=(6, 0), before=self._saver_lbl)
         else:
             self._route_note.pack_forget()
-        self._refresh_caveman_card()
         done = {
             "server": self._running,
             "password": bool(s["password"]),
@@ -1032,6 +1107,22 @@ class App(ctk.CTk):
         self._reg(ctk.CTkLabel(frame, text=self.t("savers_intro"), font=ctk.CTkFont(size=11), text_color="gray",
                                wraplength=620, justify="left"), "savers_intro").pack(anchor="w", pady=(0, 10))
 
+        sv = ctk.CTkFrame(frame)
+        sv.pack(fill="x", pady=(0, 10))
+        hdr = ctk.CTkFrame(sv, fg_color="transparent")
+        hdr.pack(fill="x", padx=14, pady=(10, 4))
+        self._reg(ctk.CTkLabel(hdr, text=self.t("sv_title"), font=ctk.CTkFont(size=13, weight="bold")),
+                  "sv_title").pack(side="left")
+        self._reg(ctk.CTkButton(hdr, text=self.t("btn_cv_report"), width=130, height=26, font=ctk.CTkFont(size=11),
+                                command=lambda: CAVEMAN_REPORT.exists() and os.startfile(CAVEMAN_REPORT)),
+                  "btn_cv_report").pack(side="right")
+        self._reg(ctk.CTkButton(hdr, text=self.t("btn_refresh"), width=80, height=26, font=ctk.CTkFont(size=11),
+                                command=self._load_savings), "btn_refresh").pack(side="right", padx=6)
+        self._savings_body = ctk.CTkFrame(sv, fg_color="transparent")
+        self._savings_body.pack(fill="x", padx=14)
+        self._reg(ctk.CTkLabel(sv, text=self.t("cv_note"), font=ctk.CTkFont(size=10), text_color="gray",
+                               wraplength=600, justify="left"), "cv_note").pack(anchor="w", padx=14, pady=(2, 10))
+
         def card(title_key, text_key):
             c = ctk.CTkFrame(frame)
             c.pack(fill="x", pady=(0, 10))
@@ -1092,29 +1183,110 @@ class App(ctk.CTk):
             r = subprocess.run("caveman --version", shell=True, capture_output=True, text=True,
                                stdin=subprocess.DEVNULL, creationflags=NO_WINDOW, encoding="utf-8", errors="replace")
             version = (r.stdout.strip().splitlines() or [""])[-1] if r.returncode == 0 else None
-            stats = caveman_stats() if version else None
-            self.after(0, self._set_caveman_version, version, stats)
+            self.after(0, self._set_caveman_version, version)
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _set_caveman_version(self, version: str | None, stats: dict | None):
+    def _set_caveman_version(self, version: str | None):
         self._cv_version = version
-        self._cv_stats = stats
         self._refresh_savers()
-        self._refresh_caveman_card()
 
-    def _refresh_caveman_card(self):
-        st = self._cv_stats
-        if not st:
-            self._cv_card.pack_forget()
+    # ── Token savings (Savers tab, refreshed every minute while it is open) ──
+
+    def _load_savings(self, quiet: bool = False):
+        if self._savings_loading:
             return
-        self._cv_card.pack(fill="x", pady=(0, 8))
-        saved, before = st.get("saved_tokens") or 0, st.get("before_tokens") or 0
-        usd = st.get("api_equivalent_savings_usd") or 0
-        self._cv_vals["cv_saved"].configure(text=f"{int(saved):,}".replace(",", "."))
-        self._cv_vals["cv_pct"].configure(text=f"{saved / before:.1%}" if before else "—")
-        self._cv_vals["cv_requests"].configure(text=str(st.get("requests") or 0))
-        self._cv_vals["cv_usd"].configure(text=f"${usd:.4f}")
+        self._savings_loading = True
+        if not (quiet and self._savings_data is not None):
+            self._render_savings(None)
+
+        def work():
+            data = token_savings()
+            self.after(0, self._finish_savings, data)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _finish_savings(self, data: list[dict]):
+        self._savings_loading = False
+        self._savings_data = data
+        self._savings_time = datetime.now().strftime("%H:%M")
+        self._render_savings(data)
+
+    def _render_savings(self, data: list[dict] | None):
+        for w in self._savings_body.winfo_children():
+            w.destroy()
+        if data is None:
+            ctk.CTkLabel(self._savings_body, text=self.t("sv_loading"), text_color="gray").pack(anchor="w", pady=6)
+            return
+        if not data:
+            ctk.CTkLabel(self._savings_body, text=self.t("sv_none"), text_color="gray", font=ctk.CTkFont(size=11),
+                         wraplength=600, justify="left").pack(anchor="w", pady=6)
+        else:
+            total = ctk.CTkFrame(self._savings_body, fg_color="transparent")
+            total.pack(fill="x", pady=(0, 6))
+            ctk.CTkLabel(total, text=_fmt_int(sum(d["saved"] for d in data)), font=ctk.CTkFont(size=24, weight="bold"),
+                         text_color="#27ae60").pack(side="left", padx=(0, 6))
+            ctk.CTkLabel(total, text=self.t("sv_total"), font=ctk.CTkFont(size=11), text_color="gray").pack(side="left")
+            for d in data:
+                row = ctk.CTkFrame(self._savings_body, fg_color="transparent")
+                row.pack(fill="x", pady=1)
+                ctk.CTkLabel(row, text=self.t(d["key"]), width=200, anchor="w",
+                             font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
+                ctk.CTkLabel(row, text=_fmt_int(d["saved"]), width=110, anchor="w", text_color="#27ae60",
+                             font=ctk.CTkFont(size=14, weight="bold")).pack(side="left")
+                parts = []
+                if d["before"]:
+                    parts.append(f"{d['saved'] / d['before']:.1%} {self.t('cv_pct')}")
+                parts.append(f"{d['requests']} {self.t('cv_requests').lower()}")
+                if d["usd"] is not None:
+                    parts.append(f"${d['usd']:.4f}")
+                ctk.CTkLabel(row, text=" · ".join(parts), font=ctk.CTkFont(size=11), text_color="gray").pack(side="left")
+        ctk.CTkLabel(self._savings_body, text=self.t("updated_every_min", time=self._savings_time),
+                     text_color="gray", font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(4, 0))
+
+    # ── 9Router update ───────────────────────────────────────────────────────
+
+    def _check_router_update(self):
+        def work():
+            upd = router_update()
+            self.after(0, self._set_router_update, upd)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _set_router_update(self, upd: tuple[str, str] | None):
+        self._update = upd
+        self._refresh_update_card()
+
+    def _refresh_update_card(self):
+        if not self._update:
+            self._upd_card.pack_forget()
+            return
+        cur, new = self._update
+        self._upd_lbl.configure(text=self.t("upd_available", new=new, cur=cur))
+        self._upd_card.pack(fill="x", pady=(0, 8), before=self._upd_anchor)
+
+    def _update_router(self):
+        self._upd_btn.configure(state="disabled", text=self.t("upd_running"))
+        was_running = self._running or port_open()
+        if was_running:
+            self._stop_router()   # npm can't replace files the running server holds open
+        self._show_tab("Logs")
+
+        def work():
+            ok = self._install_9router("npm i -g 9router@latest --prefer-online")
+            self.after(0, self._router_update_done, ok, was_running)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _router_update_done(self, ok: bool, was_running: bool):
+        self._upd_btn.configure(state="normal", text=self.t("btn_update"))
+        if ok and self._update:
+            self._log(self.t("upd_done", v=self._update[1]))
+        elif not ok:
+            self._log(self.t("upd_failed"))
+        if was_running:
+            self._start_router()
+        self._check_router_update()
 
     def _open_terminal(self, title: str, command: str):
         # Interactive installers need a real console the user can read and answer
@@ -1236,7 +1408,7 @@ class App(ctk.CTk):
                          text_color="gray", font=ctk.CTkFont(size=11)).pack(anchor="w")
             return
 
-        ctk.CTkLabel(self._accounts_body, text=self.t("accounts_updated", time=self._accounts_time),
+        ctk.CTkLabel(self._accounts_body, text=self.t("updated_every_min", time=self._accounts_time),
                      text_color="gray", font=ctk.CTkFont(size=11)).pack(anchor="w", pady=(0, 6))
         for account in accounts:
             self._render_account_card(account)
@@ -1382,10 +1554,10 @@ class App(ctk.CTk):
             delete_user_env(ENV_KEY)
             self._log(self.t("log_old_env"))
 
-    def _install_9router(self) -> bool:
-        self._log("[install] npm install -g --allow-scripts=9router 9router")
+    def _install_9router(self, cmd: str = "npm install -g --allow-scripts=9router 9router") -> bool:
+        self._log(f"[install] {cmd}")
         try:
-            proc = subprocess.Popen("npm install -g --allow-scripts=9router 9router", shell=True,
+            proc = subprocess.Popen(cmd, shell=True,
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
                                     creationflags=NO_WINDOW)
             for line in proc.stdout:
@@ -1445,8 +1617,13 @@ class App(ctk.CTk):
         if self._ticks % 12 == 0:   # every minute: caveman stats and tool routes spawn node, so less often
             self._check_caveman()
             self._load_tools_quiet()
-            if self._current_tab == "Accounts" and self.state() != "withdrawn":
-                self._load_accounts(quiet=True)
+            if self.state() != "withdrawn":
+                if self._current_tab == "Accounts":
+                    self._load_accounts(quiet=True)
+                elif self._current_tab == "Savers":
+                    self._load_savings(quiet=True)
+        if self._ticks % 720 == 0:   # hourly
+            self._check_router_update()
         self.after(5000, self._periodic)
 
     def _load_tools_quiet(self):

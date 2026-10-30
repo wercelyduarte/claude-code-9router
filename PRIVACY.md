@@ -20,7 +20,7 @@ A senha do painel do 9Router fica só na memória enquanto o app está aberto e 
 
 **Programas de terceiros.** O 9Router, o Headroom e o Caveman são projetos independentes, com políticas próprias. O Caveman envia estatísticas de uso anônimas por padrão; o app oferece um botão para desligar isso e desliga o envio de estatísticas do Headroom ao instalá-lo. Os provedores de IA que você conectar ao 9Router (Anthropic, OpenAI, Kiro e outros) recebem suas requisições conforme as políticas deles.
 
-**Contato:** abra uma issue em https://github.com/wercelyduarte/claude-code-9router/issues
+**Contato:** abra uma issue em https://github.com/wercelyduarte/ai-router-manager/issues
 
 ## English
 
@@ -40,4 +40,4 @@ The 9Router dashboard password is kept in memory only while the app is open and 
 
 **Third-party programs.** 9Router, Headroom and Caveman are independent projects with their own policies. Caveman sends anonymous usage statistics by default; the app offers a button to turn that off and turns off Headroom's statistics upload when it installs it. The AI providers you connect to 9Router (Anthropic, OpenAI, Kiro and others) receive your requests under their own policies.
 
-**Contact:** open an issue at https://github.com/wercelyduarte/claude-code-9router/issues
+**Contact:** open an issue at https://github.com/wercelyduarte/ai-router-manager/issues

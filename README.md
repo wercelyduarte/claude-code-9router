@@ -26,8 +26,8 @@ Claude Code / Codex / Cline / ...      Kiro IDE / Cursor / Copilot
 You need **Python 3.10+** and **Node.js 18+**.
 
 ```bash
-git clone https://github.com/wercelyduarte/claude-code-9router.git
-cd claude-code-9router
+git clone https://github.com/wercelyduarte/ai-router-manager.git
+cd ai-router-manager
 ```
 
 Double-click **`rodar.bat`**. On first run it installs 9Router (npm) and the Python dependency (`customtkinter`), then opens the app.
@@ -118,7 +118,7 @@ For command-line setup without the app, see [docs/manual-setup.md](docs/manual-s
 ## Project structure
 
 ```
-claude-code-9router/
+ai-router-manager/
 ├── rodar.bat               # launcher: checks/installs everything and opens the app
 ├── bootstrap.py            # installs missing dependencies, then opens app.py
 ├── app.py                  # the app (CustomTkinter)

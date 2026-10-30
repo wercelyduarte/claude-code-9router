@@ -95,21 +95,18 @@ TEXTS: dict[str, dict[str, str]] = {
         "nav_dashboard":   "Painel",
         "nav_tools":       "Ferramentas",
         "nav_savers":      "Economia",
-        "nav_accounts":    "Consumo",
         "nav_logs":        "Logs",
         # Accounts tab
-        "accounts_title":  "Consumo de tokens & limites",
-        "updated_every_min":"Atualizado às {time} · atualiza a cada 1 min",
         "accounts_empty":  "Nenhuma conta encontrada.",
-        "accounts_hint":   "Inicie o 9Router no Painel e clique em Atualizar.",
         "accounts_offline":"O 9Router não está rodando.",
-        "accounts_error":  "Não foi possível ler as cotas desta conta agora.",
-        "accounts_no_quota":"Este provedor não informa cotas.",
+        "accounts_error":    "cotas indisponíveis agora",
+        "accounts_no_quota": "não informa cotas",
         "accounts_unlimited":"Ilimitado",
-        "accounts_left":   "restante",
         "accounts_reset":  "renova em",
+        "accounts_used":     "usado",
+        "top_usage":         "Consumo de tokens",
+        "top_updated":       "Atualizado às {time} · atualiza a cada 1 min",
         "accounts_loading":"Carregando cotas…",
-        "accounts_open_dash": "Abrir Dashboard",
         "accounts_session":"sessão",
         "accounts_weekly": "semanal",
         "accounts_credit": "crédito",
@@ -139,10 +136,9 @@ TEXTS: dict[str, dict[str, str]] = {
         "tool_other_cv":   "Usa o Caveman, não o 9Router — {url}",
         "route_caveman":   "O Claude Code está passando pelo Caveman, não pelo 9Router. Por isso o 9Router não conta esse uso — a economia dele aparece na aba Economia.",
         "sv_title":        "Tokens economizados",
-        "sv_total":        "tokens economizados no total",
-        "sv_none":         "Nenhum economizador registrou economia ainda. Instale ou ligue o Headroom ou o Caveman abaixo e use suas ferramentas.",
+        "sv_none":           "Nenhuma economia registrada ainda.",
         "sv_loading":      "Carregando economia…",
-        "sv_caveman":      "Caveman (últimos 30 dias)",
+        "sv_caveman":        "Caveman (30 dias)",
         "sv_headroom":     "Headroom",
         "sv_pxpipe":       "Compressão do 9Router",
         "upd_available":   "Nova versão do 9Router disponível: v{new} (você tem v{cur})",
@@ -150,14 +146,12 @@ TEXTS: dict[str, dict[str, str]] = {
         "upd_running":     "Atualizando…",
         "upd_done":        "[update] 9Router atualizado para v{v}",
         "upd_failed":      "[update] Falha ao atualizar o 9Router — veja as mensagens acima",
-        "cv_requests":     "Requisições",
         "cv_pct":          "da entrada",
         "btn_cv_report":   "Abrir relatório",
-        "cv_note":         "Estimativas dos próprios economizadores. Com assinatura (Pro/Max) o valor em USD é só uma referência — não reduz sua fatura.",
         "btn_support":     "♥ Apoiar o projeto",
         "btn_background":  "Rodar em segundo plano",
-        "theme_dark":      "Tema: escuro",
-        "theme_light":     "Tema: claro",
+        "theme_to_light":    "☀ Tema claro",
+        "theme_to_dark":     "☾ Tema escuro",
         # Dashboard
         "dash_title":      "Painel",
         "status_running":  "Executando",
@@ -234,21 +228,18 @@ TEXTS: dict[str, dict[str, str]] = {
         "nav_dashboard":   "Dashboard",
         "nav_tools":       "Tools",
         "nav_savers":      "Savers",
-        "nav_accounts":    "Usage",
         "nav_logs":        "Logs",
         # Accounts tab
-        "accounts_title":  "Token usage & limits",
-        "updated_every_min":"Updated at {time} · refreshes every 1 min",
         "accounts_empty":  "No accounts found.",
-        "accounts_hint":   "Start 9Router on the Dashboard and click Refresh.",
         "accounts_offline":"9Router is not running.",
-        "accounts_error":  "Could not read this account's quotas right now.",
-        "accounts_no_quota":"This provider does not report quotas.",
+        "accounts_error":    "quotas unavailable right now",
+        "accounts_no_quota": "no quotas reported",
         "accounts_unlimited":"Unlimited",
-        "accounts_left":   "left",
         "accounts_reset":  "resets in",
+        "accounts_used":     "used",
+        "top_usage":         "Token usage",
+        "top_updated":       "Updated at {time} · refreshes every 1 min",
         "accounts_loading":"Loading quotas…",
-        "accounts_open_dash": "Open Dashboard",
         "accounts_session":"session",
         "accounts_weekly": "weekly",
         "accounts_credit": "credit",
@@ -278,10 +269,9 @@ TEXTS: dict[str, dict[str, str]] = {
         "tool_other_cv":   "Uses Caveman, not 9Router — {url}",
         "route_caveman":   "Claude Code goes through Caveman, not 9Router, so 9Router doesn't count that usage — its savings show in the Savers tab.",
         "sv_title":        "Tokens saved",
-        "sv_total":        "tokens saved in total",
-        "sv_none":         "No saver has recorded savings yet. Install or start Headroom or Caveman below and use your tools.",
+        "sv_none":           "No savings recorded yet.",
         "sv_loading":      "Loading savings…",
-        "sv_caveman":      "Caveman (last 30 days)",
+        "sv_caveman":        "Caveman (30 days)",
         "sv_headroom":     "Headroom",
         "sv_pxpipe":       "9Router compression",
         "upd_available":   "New 9Router version available: v{new} (you have v{cur})",
@@ -289,14 +279,12 @@ TEXTS: dict[str, dict[str, str]] = {
         "upd_running":     "Updating…",
         "upd_done":        "[update] 9Router updated to v{v}",
         "upd_failed":      "[update] 9Router update failed — see the messages above",
-        "cv_requests":     "Requests",
         "cv_pct":          "of input",
         "btn_cv_report":   "Open report",
-        "cv_note":         "The savers' own estimates. On a subscription (Pro/Max) the USD value is only a reference — it doesn't lower your bill.",
         "btn_support":     "♥ Support the project",
         "btn_background":  "Run in background",
-        "theme_dark":      "Theme: dark",
-        "theme_light":     "Theme: light",
+        "theme_to_light":    "☀ Light theme",
+        "theme_to_dark":     "☾ Dark theme",
         # Dashboard
         "dash_title":      "Dashboard",
         "status_running":  "Running",
@@ -700,10 +688,8 @@ class App(ctk.CTk):
         self._ticks = 0
         self._accounts_loading = False
         self._accounts_data: list[dict] | None = None   # last result, re-rendered on language change
-        self._accounts_time = ""
         self._savings_loading = False
         self._savings_data: list[dict] | None = None
-        self._savings_time = ""
         self._update: tuple[str, str] | None = None   # (installed, latest) 9router versions
         self._autostart_checked = False
 
@@ -720,6 +706,7 @@ class App(ctk.CTk):
         self.after(0, self._start_tray)
         self.after(1000, self._watch_port)
         self.after(5000, self._periodic)
+        self.after(1500, self._refresh_topbar)
 
     def report_callback_exception(self, *exc):
         log_error(exc)
@@ -751,6 +738,8 @@ class App(ctk.CTk):
             self._render_accounts(self._accounts_data)
         if self._savings_data is not None:
             self._render_savings(self._savings_data)
+        if self._top_time.cget("text"):
+            self._set_top_time()
         self._refresh_update_card()
         if self._tray:
             self._tray.update_menu()
@@ -759,7 +748,7 @@ class App(ctk.CTk):
         self._btn_pt.configure(fg_color=SELECTED if self._lang == "pt" else "transparent")
         self._btn_en.configure(fg_color=SELECTED if self._lang == "en" else "transparent")
         dark = ctk.get_appearance_mode().lower() == "dark"
-        self._theme_btn.configure(text=self.t("theme_dark") if dark else self.t("theme_light"))
+        self._theme_btn.configure(text=self.t("theme_to_light") if dark else self.t("theme_to_dark"))
 
     def _toggle_theme(self):
         new = "light" if ctk.get_appearance_mode().lower() == "dark" else "dark"
@@ -780,7 +769,7 @@ class App(ctk.CTk):
                   "app_subtitle").pack(pady=(0, 20))
 
         self._nav_btns: dict[str, ctk.CTkButton] = {}
-        for tab_key in ("Dashboard", "Tools", "Savers", "Accounts", "Logs"):
+        for tab_key in ("Dashboard", "Tools", "Savers", "Logs"):
             btn = ctk.CTkButton(sidebar, text=self.t(f"nav_{tab_key.lower()}"), width=160, anchor="w",
                                 fg_color="transparent", hover_color=HOVER, text_color=C_TEXT,
                                 command=lambda k=tab_key: self._show_tab(k))
@@ -815,11 +804,11 @@ class App(ctk.CTk):
         self._content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self._content.pack(side="left", fill="both", expand=True, padx=16, pady=16)
 
+        self._build_topbar()
         self._tabs: dict[str, ctk.CTkFrame] = {}
         self._build_dashboard()
         self._build_tools()
         self._build_savers()
-        self._build_accounts()
         self._build_logs()
         self._show_tab("Dashboard")
 
@@ -830,10 +819,6 @@ class App(ctk.CTk):
             self._nav_btns[n].configure(fg_color="transparent")
         self._tabs[name].pack(fill="both", expand=True)
         self._nav_btns[name].configure(fg_color=SELECTED)
-        if name == "Accounts":
-            self.after(100, self._load_accounts)
-        elif name == "Savers":
-            self.after(100, self._load_savings)
 
     def _link_button(self, parent, key: str, url: str, width=150):
         return self._reg(ctk.CTkButton(parent, text=self.t(key), width=width, height=26, font=ctk.CTkFont(size=11),
@@ -1160,22 +1145,6 @@ class App(ctk.CTk):
         self._reg(ctk.CTkLabel(frame, text=self.t("savers_intro"), font=ctk.CTkFont(size=11), text_color=C_TEXT2,
                                wraplength=620, justify="left"), "savers_intro").pack(anchor="w", pady=(0, 10))
 
-        sv = ctk.CTkFrame(frame)
-        sv.pack(fill="x", pady=(0, 10))
-        hdr = ctk.CTkFrame(sv, fg_color="transparent")
-        hdr.pack(fill="x", padx=14, pady=(10, 4))
-        self._reg(ctk.CTkLabel(hdr, text=self.t("sv_title"), font=ctk.CTkFont(size=13, weight="bold")),
-                  "sv_title").pack(side="left")
-        self._reg(ctk.CTkButton(hdr, text=self.t("btn_cv_report"), width=130, height=26, font=ctk.CTkFont(size=11),
-                                command=lambda: CAVEMAN_REPORT.exists() and os.startfile(CAVEMAN_REPORT)),
-                  "btn_cv_report").pack(side="right")
-        self._reg(ctk.CTkButton(hdr, text=self.t("btn_refresh"), width=80, height=26, font=ctk.CTkFont(size=11),
-                                command=self._load_savings), "btn_refresh").pack(side="right", padx=6)
-        self._savings_body = ctk.CTkFrame(sv, fg_color="transparent")
-        self._savings_body.pack(fill="x", padx=14)
-        self._reg(ctk.CTkLabel(sv, text=self.t("cv_note"), font=ctk.CTkFont(size=10), text_color=C_TEXT2,
-                               wraplength=600, justify="left"), "cv_note").pack(anchor="w", padx=14, pady=(2, 10))
-
         def card(title_key, text_key):
             c = ctk.CTkFrame(frame)
             c.pack(fill="x", pady=(0, 10))
@@ -1262,40 +1231,24 @@ class App(ctk.CTk):
     def _finish_savings(self, data: list[dict]):
         self._savings_loading = False
         self._savings_data = data
-        self._savings_time = datetime.now().strftime("%H:%M")
         self._render_savings(data)
+        self._set_top_time()
 
     def _render_savings(self, data: list[dict] | None):
-        for w in self._savings_body.winfo_children():
+        body = self._savings_body
+        for w in body.winfo_children():
             w.destroy()
         if data is None:
-            ctk.CTkLabel(self._savings_body, text=self.t("sv_loading"), text_color=C_TEXT2).pack(anchor="w", pady=6)
+            self._top_row(body, self.t("sv_loading"))
             return
         if not data:
-            ctk.CTkLabel(self._savings_body, text=self.t("sv_none"), text_color=C_TEXT2, font=ctk.CTkFont(size=11),
-                         wraplength=600, justify="left").pack(anchor="w", pady=6)
-        else:
-            total = ctk.CTkFrame(self._savings_body, fg_color="transparent")
-            total.pack(fill="x", pady=(0, 6))
-            ctk.CTkLabel(total, text=_fmt_int(sum(d["saved"] for d in data)), font=ctk.CTkFont(size=24, weight="bold"),
-                         text_color=C_OK).pack(side="left", padx=(0, 6))
-            ctk.CTkLabel(total, text=self.t("sv_total"), font=ctk.CTkFont(size=11), text_color=C_TEXT2).pack(side="left")
-            for d in data:
-                row = ctk.CTkFrame(self._savings_body, fg_color="transparent")
-                row.pack(fill="x", pady=1)
-                ctk.CTkLabel(row, text=self.t(d["key"]), width=200, anchor="w",
-                             font=ctk.CTkFont(size=12, weight="bold")).pack(side="left")
-                ctk.CTkLabel(row, text=_fmt_int(d["saved"]), width=110, anchor="w", text_color=C_OK,
-                             font=ctk.CTkFont(size=14, weight="bold")).pack(side="left")
-                parts = []
-                if d["before"]:
-                    parts.append(f"{d['saved'] / d['before']:.1%} {self.t('cv_pct')}")
-                parts.append(f"{d['requests']} {self.t('cv_requests').lower()}")
-                if d["usd"] is not None:
-                    parts.append(f"${d['usd']:.4f}")
-                ctk.CTkLabel(row, text=" · ".join(parts), font=ctk.CTkFont(size=11), text_color=C_TEXT2).pack(side="left")
-        ctk.CTkLabel(self._savings_body, text=self.t("updated_every_min", time=self._savings_time),
-                     text_color=C_TEXT2, font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(4, 0))
+            self._top_row(body, self.t("sv_none"))
+            return
+        self._top_row(body, "Total", text=_fmt_int(sum(d["saved"] for d in data)), text_color=C_OK)
+        for d in data:
+            ratio = d["saved"] / d["before"] if d["before"] else 0.0
+            text = _fmt_int(d["saved"]) + (f" · {ratio:.1%}" if d["before"] else "")
+            self._top_row(body, self.t(d["key"]), ratio, C_OK, text)
 
     # ── 9Router update ───────────────────────────────────────────────────────
 
@@ -1408,23 +1361,51 @@ class App(ctk.CTk):
 
     # ── Accounts / Quotas tab ────────────────────────────────────────────────
 
-    def _build_accounts(self):
-        frame = ctk.CTkScrollableFrame(self._content, fg_color="transparent")
-        self._tabs["Accounts"] = frame
+    def _build_topbar(self):
+        """Token usage (quota bars, like Claude Code's /usage) and savings, above every tab."""
+        bar = ctk.CTkFrame(self._content)
+        bar.pack(fill="x", pady=(0, 10))
+        bar.grid_columnconfigure((0, 1), weight=1, uniform="top")
+        self._accounts_body = self._top_column(bar, 0, "top_usage")
+        self._savings_body = self._top_column(bar, 1, "sv_title")
+        foot = ctk.CTkFrame(bar, fg_color="transparent")
+        foot.grid(row=1, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 6))
+        self._top_time = ctk.CTkLabel(foot, text="", font=ctk.CTkFont(size=10), text_color=C_TEXT2)
+        self._top_time.pack(side="left")
+        self._reg(ctk.CTkButton(foot, text=self.t("btn_cv_report"), width=110, height=22, font=ctk.CTkFont(size=10),
+                                command=lambda: CAVEMAN_REPORT.exists() and os.startfile(CAVEMAN_REPORT)),
+                  "btn_cv_report").pack(side="right")
+        self._reg(ctk.CTkButton(foot, text=self.t("btn_refresh"), width=80, height=22, font=ctk.CTkFont(size=10),
+                                command=self._refresh_topbar), "btn_refresh").pack(side="right", padx=6)
 
-        hdr = ctk.CTkFrame(frame, fg_color="transparent")
-        hdr.pack(fill="x", pady=(0, 10))
-        self._reg(ctk.CTkLabel(hdr, text=self.t("accounts_title"),
-                               font=ctk.CTkFont(size=18, weight="bold")), "accounts_title").pack(side="left")
-        btn_row = ctk.CTkFrame(hdr, fg_color="transparent")
-        btn_row.pack(side="right")
-        self._reg(ctk.CTkButton(btn_row, text=self.t("btn_refresh"), width=80, height=26,
-                                font=ctk.CTkFont(size=11), command=self._load_accounts),
-                  "btn_refresh").pack(side="left", padx=4)
-        self._link_button(btn_row, "accounts_open_dash", DASH, width=140).pack(side="left")
+    def _top_column(self, bar, col: int, title_key: str):
+        box = ctk.CTkFrame(bar, fg_color="transparent")
+        box.grid(row=0, column=col, sticky="new", padx=12, pady=(8, 4))
+        self._reg(ctk.CTkLabel(box, text=self.t(title_key), font=ctk.CTkFont(size=12, weight="bold")),
+                  title_key).pack(anchor="w")
+        body = ctk.CTkFrame(box, fg_color="transparent")
+        body.pack(fill="x")
+        return body
 
-        self._accounts_body = ctk.CTkFrame(frame, fg_color="transparent")
-        self._accounts_body.pack(fill="both", expand=True)
+    def _top_row(self, parent, label: str, ratio: float | None = None, color=None, text: str = "", text_color=C_TEXT2):
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(fill="x", pady=1)
+        ctk.CTkLabel(row, text=label, width=110 if text or ratio is not None else 0, anchor="w",
+                     font=ctk.CTkFont(size=11), text_color=C_TEXT2 if not text and ratio is None else C_TEXT).pack(side="left")
+        if ratio is not None:
+            bar = ctk.CTkProgressBar(row, width=70, height=8, corner_radius=4, progress_color=color)
+            bar.set(max(0.0, min(1.0, ratio)))
+            bar.pack(side="left", padx=(0, 8))
+        if text:
+            ctk.CTkLabel(row, text=text, font=ctk.CTkFont(size=10, weight="bold" if ratio is None else "normal"),
+                         text_color=text_color, anchor="w").pack(side="left", fill="x", expand=True)
+
+    def _refresh_topbar(self, quiet: bool = False):
+        self._load_accounts(quiet)
+        self._load_savings(quiet)
+
+    def _set_top_time(self):
+        self._top_time.configure(text=self.t("top_updated", time=datetime.now().strftime("%H:%M")))
 
     def _load_accounts(self, quiet: bool = False):
         if self._accounts_loading:
@@ -1442,57 +1423,27 @@ class App(ctk.CTk):
     def _finish_accounts(self, data: list[dict] | None):
         self._accounts_loading = False
         self._accounts_data = data
-        self._accounts_time = datetime.now().strftime("%H:%M")
         self._render_accounts(data, offline=data is None)
+        self._set_top_time()
 
     def _render_accounts(self, accounts: list[dict] | None, offline: bool = False):
-        for w in self._accounts_body.winfo_children():
+        body = self._accounts_body
+        for w in body.winfo_children():
             w.destroy()
-
         if accounts is None and not offline:
-            ctk.CTkLabel(self._accounts_body, text=self.t("accounts_loading"),
-                         text_color=C_TEXT2).pack(anchor="w", pady=20)
+            self._top_row(body, self.t("accounts_loading"))
             return
-
         if not accounts:
-            ctk.CTkLabel(self._accounts_body, text=self.t("accounts_offline" if offline else "accounts_empty"),
-                         text_color=C_TEXT2, font=ctk.CTkFont(size=13)).pack(anchor="w", pady=(20, 6))
-            ctk.CTkLabel(self._accounts_body, text=self.t("accounts_hint"),
-                         text_color=C_TEXT2, font=ctk.CTkFont(size=11)).pack(anchor="w")
+            self._top_row(body, self.t("accounts_offline" if offline else "accounts_empty"))
             return
-
-        ctk.CTkLabel(self._accounts_body, text=self.t("updated_every_min", time=self._accounts_time),
-                     text_color=C_TEXT2, font=ctk.CTkFont(size=11)).pack(anchor="w", pady=(0, 6))
         for account in accounts:
-            self._render_account_card(account)
-
-    def _render_account_card(self, account: dict):
-        card = ctk.CTkFrame(self._accounts_body)
-        card.pack(fill="x", pady=(0, 10))
-
-        hdr = ctk.CTkFrame(card, fg_color="transparent")
-        hdr.pack(fill="x", padx=14, pady=(10, 6))
-        ctk.CTkLabel(hdr, text="●", text_color=C_ERR if account["error"] else C_OK_LT,
-                     font=ctk.CTkFont(size=16)).pack(side="left")
-        ctk.CTkLabel(hdr, text=f"{account['provider'].capitalize()}  {account['name']}".strip(),
-                     font=ctk.CTkFont(size=13, weight="bold")).pack(side="left", padx=8)
-        if account["plan"]:
-            ctk.CTkLabel(hdr, text=account["plan"], font=ctk.CTkFont(size=11),
-                         text_color=C_TEXT2).pack(side="right")
-
-        if account["error"]:
-            message = self.t("accounts_error")
-        elif not account["quotas"]:
-            message = self.t("accounts_no_quota")
-        else:
-            message = None
-        if message:
-            ctk.CTkLabel(card, text=message, font=ctk.CTkFont(size=11),
-                         text_color=C_TEXT2).pack(anchor="w", padx=14, pady=(0, 10))
-            return
-        for q in account["quotas"]:
-            self._render_quota_row(card, q)
-        ctk.CTkFrame(card, height=6, fg_color="transparent").pack()
+            provider = account["provider"].capitalize()
+            if account["error"] or not account["quotas"]:
+                self._top_row(body, provider, text=self.t("accounts_error" if account["error"] else "accounts_no_quota"),
+                              text_color=C_TEXT2)
+                continue
+            for q in account["quotas"]:
+                self._render_quota_row(body, provider, q)
 
     def _quota_label(self, name: str) -> str:
         # 9router names quotas like "session (5h)", "weekly (7d)" or "credit"
@@ -1501,33 +1452,22 @@ class App(ctk.CTk):
                 return self.t(f"accounts_{key}") + name[len(key):]
         return name
 
-    def _render_quota_row(self, parent, quota: dict):
-        row = ctk.CTkFrame(parent, fg_color="transparent")
-        row.pack(fill="x", padx=14, pady=3)
-        ctk.CTkLabel(row, text=self._quota_label(quota["name"]), width=130, anchor="w",
-                     font=ctk.CTkFont(size=11)).pack(side="left")
-
+    def _render_quota_row(self, parent, provider: str, quota: dict):
+        label = f"{provider} · {self._quota_label(quota['name'])}"
         if quota.get("unlimited"):
-            ctk.CTkLabel(row, text=self.t("accounts_unlimited"), font=ctk.CTkFont(size=11),
-                         text_color=C_TEXT2).pack(side="left", padx=8)
+            self._top_row(parent, label, text=self.t("accounts_unlimited"), text_color=C_TEXT2)
             return
-
         total = quota.get("total") or 0
         remaining = quota.get("remaining")
         if remaining is None:
             remaining = total - (quota.get("used") or 0)
-        ratio = max(0.0, min(1.0, remaining / total)) if total else 0.0
-        color = C_OK_LT if ratio > 0.5 else (C_WARN_LT if ratio > 0.2 else C_ERR)
-
-        bar = ctk.CTkProgressBar(row, width=180, height=12, corner_radius=4, progress_color=color)
-        bar.set(ratio)
-        bar.pack(side="left", padx=(8, 6))
-
-        stats = f"{self.t('accounts_left')}: {remaining}/{total}   {round(ratio * 100)}%"
+        used = max(0.0, min(1.0, 1 - remaining / total)) if total else 0.0
+        color = C_OK_LT if used < 0.5 else (C_WARN_LT if used < 0.8 else C_ERR)
+        text = f"{round(used * 100)}% {self.t('accounts_used')}"
         left = _time_until(quota.get("resetAt"))
         if left:
-            stats += f"   {self.t('accounts_reset')} {left}"
-        ctk.CTkLabel(row, text=stats, font=ctk.CTkFont(size=11), text_color=C_TEXT2).pack(side="left")
+            text += f" · {self.t('accounts_reset')} {left}"
+        self._top_row(parent, label, used, color, text)
 
     # ── Logs tab ──────────────────────────────────────────────────────────────
 
@@ -1584,6 +1524,7 @@ class App(ctk.CTk):
                 pass
 
     def show_window(self):
+        self._refresh_topbar(quiet=True)   # not refreshed while hidden in the tray
         self.deiconify()
         self.lift()
         self.focus_force()
@@ -1653,6 +1594,7 @@ class App(ctk.CTk):
         self._running = running
         if running:
             self._start_headroom()   # no-op if not installed or already up
+            self.after(4000, self._refresh_topbar, True)   # quotas need the server answering
         self._refresh_status()
         self._refresh_snapshot_views()
 
@@ -1671,10 +1613,7 @@ class App(ctk.CTk):
             self._check_caveman()
             self._load_tools_quiet()
             if self.state() != "withdrawn":
-                if self._current_tab == "Accounts":
-                    self._load_accounts(quiet=True)
-                elif self._current_tab == "Savers":
-                    self._load_savings(quiet=True)
+                self._refresh_topbar(quiet=True)
         if self._ticks % 720 == 0:   # hourly
             self._check_router_update()
         self.after(5000, self._periodic)

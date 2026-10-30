@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Bootstrapper do 9Router Manager.
+Bootstrapper do AI Router Manager.
 
 Garante que todas as dependencias Python estejam instaladas antes de abrir o app.
 Funciona em qualquer PC Windows com Python 3.10+ no PATH.
@@ -147,7 +147,7 @@ def garantir_deps_python():
 
 def main():
     print("=" * 60)
-    print(" 9Router Manager - verificacao de ambiente")
+    print(" AI Router Manager - verificacao de ambiente")
     print("=" * 60)
     print(f"Python: {sys.executable} ({sys.version.split()[0]})")
     print(f"Local : {BASE_DIR}")

@@ -1,4 +1,4 @@
-# claude-code-9router
+# AI Router Manager
 
 A Windows app (Portuguese / English) that runs [9Router](https://9router.com) and connects your AI coding tools to it: **Claude Code, Codex, OpenCode, Cline, Kilo Code, Factory Droid, Crush, Pi, Oh My Pi**, plus **Kiro, Cursor and GitHub Copilot** through the 9Router dashboard.
 
@@ -128,6 +128,25 @@ claude-code-9router/
 ├── requirements-build.txt  # build dependencies
 └── docs/manual-setup.md    # manual setup with commands
 ```
+
+## Releases
+
+`build.bat` builds with the version of the latest git tag. To publish a new version, push a tag:
+
+```bash
+git tag v1.0.4
+git push origin v1.0.4
+```
+
+GitHub Actions then builds the `.msi` and publishes the release.
+
+## Support
+
+The app is free. If it helps you, you can support it through [GitHub Sponsors](https://github.com/sponsors/wercelyduarte) (the ♥ button in the app).
+
+## Privacy
+
+The app collects no data. See [PRIVACY.md](PRIVACY.md).
 
 ## License
 

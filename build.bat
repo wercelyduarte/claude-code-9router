@@ -1,5 +1,5 @@
 @echo off
-REM Uso:  build.bat        -> gera build\9RouterManager\9RouterManager.exe
+REM Uso:  build.bat        -> gera build\AIRouterManager\AIRouterManager.exe
 REM       build.bat msi    -> gera tambem o instalador .msi em dist\
 REM Release no GitHub: crie e envie uma tag vX.Y.Z (git tag v1.0.3, depois git push origin v1.0.3)
 REM e o workflow .github\workflows\release.yml gera o .msi e publica a release.
@@ -25,7 +25,7 @@ if /i "%~1"=="msi" (
 
 echo.
 echo Build concluido.
-echo   Executavel: build\9RouterManager\9RouterManager.exe
+echo   Executavel: build\AIRouterManager\AIRouterManager.exe
 if /i "%~1"=="msi" echo   Instalador: pasta dist\
 pause
 exit /b 0

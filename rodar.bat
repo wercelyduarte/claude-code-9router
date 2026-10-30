@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================
-REM  9Router Manager - launcher (qualquer PC Windows)
+REM  AI Router Manager - launcher (qualquer PC Windows)
 REM  1. Verifica Python no PATH (py launcher ou python)
 REM  2. Verifica se Node.js / npm estao instalados
 REM  3. Verifica se 9router esta instalado (npm install -g)

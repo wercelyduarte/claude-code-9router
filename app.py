@@ -1,5 +1,5 @@
 """
-9Router Manager — GUI para gerenciar o 9router e conectar ferramentas de IA
+AI Router Manager — GUI para gerenciar o 9router e conectar ferramentas de IA
 Requires: pip install customtkinter pystray Pillow
 """
 
@@ -43,6 +43,9 @@ NO_WINDOW       = subprocess.CREATE_NO_WINDOW
 BASE_DIR        = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
 ICON_ICO        = BASE_DIR / "icone.ico"
 ICON_PNG        = BASE_DIR / "icone.png"
+VERSION_FILE    = BASE_DIR / "VERSION"   # written by setup.py at build time
+APP_VERSION     = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "dev"
+SPONSORS_URL    = "https://github.com/sponsors/wercelyduarte"
 CONFIG_FILE     = Path(os.environ.get("APPDATA", "")) / "9RouterManager" / "config.json"
 HEADROOM_PORT   = 8787   # where 9Router's Headroom mode sends requests (its headroomUrl default)
 HEADROOM_VENV   = Path(os.environ.get("APPDATA", "")) / "9RouterManager" / "headroom-venv"
@@ -121,7 +124,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "cv_pct":          "da entrada",
         "btn_cv_report":   "Abrir relatório",
         "cv_note":         "Estimativas dos próprios economizadores. Com assinatura (Pro/Max) o valor em USD é só uma referência — não reduz sua fatura.",
-        "version":         "v0.5.x",
+        "btn_support":     "♥ Apoiar o projeto",
         "btn_background":  "Rodar em segundo plano",
         "theme_dark":      "Tema: escuro",
         "theme_light":     "Tema: claro",
@@ -183,9 +186,9 @@ TEXTS: dict[str, dict[str, str]] = {
         "btn_ok":          "OK",
         "btn_cancel":      "Cancelar",
         # Tray
-        "tray_open":       "Abrir 9Router Manager",
+        "tray_open":       "Abrir AI Router Manager",
         "tray_quit":       "Sair (para o 9Router)",
-        "tray_notice":     "O 9Router Manager continua rodando aqui. Clique no ícone para abrir.",
+        "tray_notice":     "O AI Router Manager continua rodando aqui. Clique no ícone para abrir.",
         # Logs
         "logs_title":      "Logs",
         "btn_clear":       "Limpar",
@@ -259,7 +262,7 @@ TEXTS: dict[str, dict[str, str]] = {
         "cv_pct":          "of input",
         "btn_cv_report":   "Open report",
         "cv_note":         "The savers' own estimates. On a subscription (Pro/Max) the USD value is only a reference — it doesn't lower your bill.",
-        "version":         "v0.5.x",
+        "btn_support":     "♥ Support the project",
         "btn_background":  "Run in background",
         "theme_dark":      "Theme: dark",
         "theme_light":     "Theme: light",
@@ -321,9 +324,9 @@ TEXTS: dict[str, dict[str, str]] = {
         "btn_ok":          "OK",
         "btn_cancel":      "Cancel",
         # Tray
-        "tray_open":       "Open 9Router Manager",
+        "tray_open":       "Open AI Router Manager",
         "tray_quit":       "Quit (stops 9Router)",
-        "tray_notice":     "9Router Manager keeps running here. Click the icon to open it.",
+        "tray_notice":     "AI Router Manager keeps running here. Click the icon to open it.",
         # Logs
         "logs_title":      "Logs",
         "btn_clear":       "Clear",
@@ -638,7 +641,7 @@ class App(ctk.CTk):
         ctk.set_appearance_mode(self._cfg.get("theme", "dark"))
         ctk.set_default_color_theme("blue")
         super().__init__()
-        self.title("9Router Manager")
+        self.title("AI Router Manager")
         self.geometry("920x700")
         self.resizable(True, True)
         self.minsize(780, 560)
@@ -737,7 +740,7 @@ class App(ctk.CTk):
         sidebar.pack(side="left", fill="y")
         sidebar.pack_propagate(False)
 
-        ctk.CTkLabel(sidebar, text="9Router", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(24, 4))
+        ctk.CTkLabel(sidebar, text="AI Router", font=ctk.CTkFont(size=20, weight="bold")).pack(pady=(24, 4))
         self._reg(ctk.CTkLabel(sidebar, text=self.t("app_subtitle"), font=ctk.CTkFont(size=11), text_color="gray"),
                   "app_subtitle").pack(pady=(0, 20))
 
@@ -768,8 +771,11 @@ class App(ctk.CTk):
             self._reg(ctk.CTkButton(sidebar, text=self.t("btn_background"), width=160, height=26,
                                     font=ctk.CTkFont(size=11), fg_color="gray40", hover_color="gray30",
                                     command=self.hide_to_tray), "btn_background").pack(side="bottom", pady=(0, 6))
-        self._reg(ctk.CTkLabel(sidebar, text=self.t("version"), font=ctk.CTkFont(size=10), text_color="gray"),
-                  "version").pack(side="bottom", pady=(0, 6))
+        ctk.CTkLabel(sidebar, text=f"v{APP_VERSION}", font=ctk.CTkFont(size=10),
+                     text_color="gray").pack(side="bottom", pady=(0, 6))
+        self._reg(ctk.CTkButton(sidebar, text=self.t("btn_support"), width=160, height=26, font=ctk.CTkFont(size=11),
+                                fg_color="#db61a2", hover_color="#bf4b8a",
+                                command=lambda: webbrowser.open(SPONSORS_URL)), "btn_support").pack(side="bottom", pady=(0, 6))
 
         self._content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
         self._content.pack(side="left", fill="both", expand=True, padx=16, pady=16)
@@ -1515,7 +1521,7 @@ class App(ctk.CTk):
             pystray.MenuItem(lambda _i: self.t("tray_open"), lambda: self.after(0, self.show_window), default=True),
             pystray.MenuItem(lambda _i: self.t("tray_quit"), lambda: self.after(0, self.quit_app)),
         )
-        self._tray = pystray.Icon("9router-manager", image, "9Router Manager", menu)
+        self._tray = pystray.Icon("ai-router-manager", image, "AI Router Manager", menu)
         threading.Thread(target=self._tray.run, daemon=True).start()
 
     def hide_to_tray(self):
@@ -1526,7 +1532,7 @@ class App(ctk.CTk):
         if not self._tray_notified:
             self._tray_notified = True
             try:
-                self._tray.notify(self.t("tray_notice"), "9Router Manager")
+                self._tray.notify(self.t("tray_notice"), "AI Router Manager")
             except Exception:
                 pass
 

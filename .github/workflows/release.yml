@@ -30,4 +30,4 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.msi --title "9Router Manager $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/*.msi --title "AI Router Manager $GITHUB_REF_NAME" --generate-notes

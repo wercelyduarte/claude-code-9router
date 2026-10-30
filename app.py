@@ -490,6 +490,18 @@ def tool_route(tool: dict) -> str:
     return "router" if f":{ROUTER_PORT}" in url else "other"
 
 
+def caveman_version(out: str) -> str:
+    """Caveman 4.x prints {"version": ...} JSON for --version; older releases print a plain line."""
+    out = out.strip()
+    start = out.find("{")
+    if start >= 0:
+        try:
+            return str(json.loads(out[start:]).get("version") or "")
+        except (ValueError, AttributeError):
+            pass
+    return (out.splitlines() or [""])[-1]
+
+
 def caveman_stats() -> dict | None:
     r = subprocess.run("caveman stats --json", shell=True, capture_output=True, text=True, stdin=subprocess.DEVNULL,
                        creationflags=NO_WINDOW, encoding="utf-8", errors="replace")
@@ -1204,7 +1216,7 @@ class App(ctk.CTk):
         def work():
             r = subprocess.run("caveman --version", shell=True, capture_output=True, text=True,
                                stdin=subprocess.DEVNULL, creationflags=NO_WINDOW, encoding="utf-8", errors="replace")
-            version = (r.stdout.strip().splitlines() or [""])[-1] if r.returncode == 0 else None
+            version = caveman_version(r.stdout) if r.returncode == 0 else None
             self.after(0, self._set_caveman_version, version)
 
         threading.Thread(target=work, daemon=True).start()
